@@ -1,0 +1,56 @@
+services:
+  # ──────────────────────────────────────────────
+  # PostgreSQL Database
+  # ──────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: wa-akg-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: waakguser
+      POSTGRES_PASSWORD: waakgpass
+      POSTGRES_DB: waakgdb
+    volumes:
+      - wa_akg_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waakguser -d waakgdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ──────────────────────────────────────────────
+  # WA-AKG Gateway Application
+  # ──────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wa-akg-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://waakguser:waakgpass@db:5432/waakgdb"
+      AUTH_SECRET: "wa-akg-local-dev-secret-change-in-prod-2024"
+      AUTH_TRUST_HOST: "true"
+      BASE_URL: "http://localhost:3030"
+      NEXTAUTH_URL: "http://localhost:3030"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3030"
+      NEXT_PUBLIC_API_URL: "http://localhost:3030/api"
+      NODE_ENV: "production"
+      PORT: "3030"
+      APP_NAME: "WA-AKG"
+      TZ: "Asia/Kolkata"
+      NEXT_PUBLIC_SWAGGER_USERNAME: "admin"
+      NEXT_PUBLIC_SWAGGER_PASSWORD: "admin123"
+    ports:
+      - "3030:3030"
+    volumes:
+      - wa_akg_media:/app/data/media
+
+volumes:
+  wa_akg_pgdata:
+  wa_akg_media:
