@@ -281,6 +281,7 @@ export default function AutoReplyPage() {
                                         <SelectItem value="ALL">Everyone & Groups</SelectItem>
                                         <SelectItem value="PRIVATE">Private Chats Only</SelectItem>
                                         <SelectItem value="GROUP">Group Chats Only</SelectItem>
+                                        <SelectItem value="WHITELIST">Whitelisted Only (Bot Settings)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -360,7 +361,11 @@ export default function AutoReplyPage() {
                                         </CardTitle>
                                         <div className="flex gap-2 flex-wrap text-xs">
                                             <Badge variant="outline" className="text-muted-foreground font-normal shrink-0">{rule.matchType}</Badge>
-                                            <Badge variant="secondary" className="font-normal shrink-0 text-[10px]">{rule.triggerType}</Badge>
+                                            {rule.triggerType === 'WHITELIST' ? (
+                                                <Badge className="font-normal shrink-0 text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Whitelisted Only</Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="font-normal shrink-0 text-[10px]">{rule.triggerType}</Badge>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="shrink-0 flex gap-1">
@@ -452,6 +457,7 @@ export default function AutoReplyPage() {
                                     <SelectItem value="ALL">Everyone & Groups</SelectItem>
                                     <SelectItem value="PRIVATE">Private Chats Only</SelectItem>
                                     <SelectItem value="GROUP">Group Chats Only</SelectItem>
+                                    <SelectItem value="WHITELIST">Whitelisted Only (Bot Settings)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

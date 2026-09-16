@@ -3578,7 +3578,7 @@ All endpoints require authentication via:
                                             matchType: { type: "string", enum: ["EXACT", "CONTAINS", "STARTS_WITH", "REGEX"] },
                                             isMedia: { type: "boolean" },
                                             mediaUrl: { type: "string" },
-                                            triggerType: { type: "string", enum: ["ALL", "GROUP", "PRIVATE"] }
+                                            triggerType: { type: "string", enum: ["ALL", "GROUP", "PRIVATE", "WHITELIST"] }
                                         }
                                     },
                                     example: {
@@ -3648,7 +3648,7 @@ All endpoints require authentication via:
                                             response: { type: "string" },
                                             isMedia: { type: "boolean" },
                                             mediaUrl: { type: "string" },
-                                            triggerType: { type: "string", enum: ["ALL", "GROUP", "PRIVATE"] }
+                                            triggerType: { type: "string", enum: ["ALL", "GROUP", "PRIVATE", "WHITELIST"] }
                                         }
                                     },
                                     example: {

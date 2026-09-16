@@ -33,10 +33,18 @@ function canAutoReply(config: any, fromMe: boolean, senderJid: string): boolean 
         if (mode === 'ALL') return true;
 
         if (mode === 'SPECIFIC') {
-            const allowedJids = config.autoReplyAllowedJids || [];
-            if (Array.isArray(allowedJids)) {
-                return allowedJids.some((jid: string) => senderJid.includes(jid));
+            const allowedJids = [
+                ...(Array.isArray(config.autoReplyAllowedJids) ? config.autoReplyAllowedJids : []),
+                ...(Array.isArray(config.botAllowedJids) ? config.botAllowedJids : [])
+            ];
+            if (allowedJids.length > 0) {
+                const senderClean = senderJid.split('@')[0].split(':')[0];
+                return allowedJids.some((jid: string) => {
+                    const clean = jid.split('@')[0].split(':')[0];
+                    return senderClean === clean || senderJid.includes(clean);
+                });
             }
+            return false;
         }
 
         if (mode === 'BLACKLIST') {
@@ -159,6 +167,19 @@ export async function bindAutoReply(sock: WASocket, sessionId: string) {
 
                         if (triggerType === 'GROUP' && !isGroup) continue;
                         if (triggerType === 'PRIVATE' && isGroup) continue;
+                        if (triggerType === 'WHITELIST') {
+                            const allowed: string[] = [
+                                ...(Array.isArray(config.botAllowedJids) ? config.botAllowedJids : []),
+                                ...(Array.isArray(config.autoReplyAllowedJids) ? config.autoReplyAllowedJids : [])
+                            ];
+                            if (allowed.length === 0) continue; // No whitelisted contacts configured
+                            const senderClean = senderJid.split('@')[0].split(':')[0];
+                            const isWhitelisted = allowed.some((item: string) => {
+                                const cleanItem = item.split('@')[0].split(':')[0];
+                                return senderClean === cleanItem || senderJid.includes(cleanItem);
+                            });
+                            if (!isWhitelisted) continue;
+                        }
 
                         logger.info("AutoReply", `Match: ${rule.keyword} -> ${remoteJid}`);
 
