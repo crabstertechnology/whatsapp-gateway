@@ -153,6 +153,19 @@ export class WhatsAppManager {
         return this.sessions.get(sessionId);
     }
 
+    public getAllInstances(): WhatsAppInstance[] {
+        return Array.from(this.sessions.values());
+    }
+
+    public getConnectedInstance(): WhatsAppInstance | undefined {
+        for (const inst of this.sessions.values()) {
+            if (inst.status === "CONNECTED" && inst.socket) {
+                return inst;
+            }
+        }
+        return undefined;
+    }
+
     async deleteSession(sessionId: string) {
         const instance = this.sessions.get(sessionId);
         if (instance) {

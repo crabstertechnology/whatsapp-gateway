@@ -342,6 +342,16 @@ export async function handleBotCommand(
                 break;
             }
 
+            case "news":
+            case "berita": {
+                await sock.sendMessage(remoteJid, { react: { text: "⏳", key: msg.key } }).catch(() => {});
+                const { buildMorningNewsDigest } = await import("@/lib/news-service");
+                const digest = await buildMorningNewsDigest();
+                await sock.sendMessage(remoteJid, { text: digest }, { quoted: msg });
+                await sock.sendMessage(remoteJid, { react: { text: "🗞️", key: msg.key } }).catch(() => {});
+                break;
+            }
+
             case "id": {
                 await sock.sendMessage(remoteJid, {
                     text: `*Chat ID:* \`${remoteJid}\``
@@ -528,6 +538,7 @@ export async function handleBotCommand(
 🤖 *${botName} Menu* 🤖
 
 📌 *Commands:*
+• *${prefix}news*: Daily top India & Global news digest (No AI)
 • *${prefix}ask* / *${prefix}ai* <tanya>: Tanya AI / terjemah / buat teks
 • *${prefix}summary* <link>: Rangkum artikel / berita dari link
 • *${prefix}sticker* / *${prefix}s*: Convert Image/Video to Sticker

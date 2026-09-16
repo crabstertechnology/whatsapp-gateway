@@ -77,5 +77,18 @@ export function initScheduler() {
         }
     });
     
-    logger.info("Cron", "Scheduler initialized");
+    // Daily Morning News Briefing at 07:30 AM IST (Asia/Kolkata)
+    cron.schedule("30 7 * * *", async () => {
+        logger.info("Cron", "Running daily morning news briefing job (07:30 AM IST)...");
+        try {
+            const { sendMorningNews } = await import("./news-service");
+            await sendMorningNews("57342326489321@lid");
+        } catch (newsErr) {
+            logger.error("Cron", "Failed to run daily morning news job:", newsErr);
+        }
+    }, {
+        timezone: "Asia/Kolkata"
+    });
+
+    logger.info("Cron", "Scheduler initialized (including daily 07:30 AM news briefing)");
 }
