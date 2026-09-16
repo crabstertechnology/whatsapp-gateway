@@ -16,7 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Save, AlertCircle, Bot, X, Plus, ShieldCheck, Zap, UserCheck, MessageSquarePlus } from "lucide-react";
+import { RefreshCw, Save, AlertCircle, Bot, X, Plus, ShieldCheck, Zap, UserCheck, MessageSquarePlus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { SessionGuard } from "@/components/dashboard/session-guard";
 
@@ -32,6 +32,9 @@ export default function BotSettingsPage() {
         maxStickerDuration: 10,
         enablePing: true,
         enableUptime: true,
+        enableAi: true,
+        aiApiKey: "",
+        aiProvider: "gemini",
         removeBgApiKey: "",
         botMode: "OWNER",
         autoReplyMode: "ALL",
@@ -103,6 +106,9 @@ export default function BotSettingsPage() {
                     setBotConfig(prev => ({
                         ...prev,
                         ...data,
+                        enableAi: data.enableAi !== false,
+                        aiApiKey: data.aiApiKey || "",
+                        aiProvider: data.aiProvider || "gemini",
                         removeBgApiKey: data.removeBgApiKey || "",
                         prefix: data.prefix || "#",
                         welcomeMessage: data.welcomeMessage || "",
@@ -450,6 +456,98 @@ export default function BotSettingsPage() {
                                 <Button className="w-full sm:w-auto" onClick={handleSaveBot} disabled={botLoading || !sessionId}>
                                     {botLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Media Settings
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* AI Assistant & Link Summarizer */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-indigo-500" />
+                                Pocket AI Assistant & Link Summarizer
+                            </CardTitle>
+                            <CardDescription>
+                                Power <code>{botConfig.prefix}ask</code> / <code>{botConfig.prefix}ai</code> for intelligent Q&A and <code>{botConfig.prefix}summary</code> to read articles in seconds directly from WhatsApp.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between space-x-2 border p-3 rounded-lg">
+                                <Label htmlFor="enable-ai" className="flex flex-col space-y-1 cursor-pointer">
+                                    <span className="font-medium">Enable AI Features</span>
+                                    <span className="font-normal text-xs text-muted-foreground">Respond to {botConfig.prefix}ask and {botConfig.prefix}summary commands</span>
+                                </Label>
+                                <Switch
+                                    id="enable-ai"
+                                    checked={botConfig.enableAi}
+                                    onCheckedChange={(c) => setBotConfig((prev) => ({ ...prev, enableAi: c }))}
+                                />
+                            </div>
+
+                            {botConfig.enableAi && (
+                                <div className="space-y-4 pt-2 border-t border-border/50 animate-in fade-in duration-200">
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label>AI Provider</Label>
+                                            <Select
+                                                value={botConfig.aiProvider}
+                                                onValueChange={(v: string) => setBotConfig((prev) => ({ ...prev, aiProvider: v }))}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="gemini">Google Gemini (Recommended / Free)</SelectItem>
+                                                    <SelectItem value="openai">OpenAI (ChatGPT - gpt-4o-mini)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground">
+                                                {botConfig.aiProvider === "gemini" 
+                                                    ? "Fast & generous free tier via Google AI Studio." 
+                                                    : "Requires paid OpenAI API key."}
+                                            </p>
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label className="flex items-center justify-between">
+                                                <span>API Key</span>
+                                                {botConfig.aiProvider === "gemini" && (
+                                                    <a
+                                                        href="https://aistudio.google.com/app/apikey"
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-[11px] text-primary hover:underline"
+                                                    >
+                                                        Get Free Gemini Key ↗
+                                                    </a>
+                                                )}
+                                            </Label>
+                                            <Input
+                                                type="password"
+                                                placeholder={botConfig.aiProvider === "gemini" ? "AIzaSy..." : "sk-..."}
+                                                value={botConfig.aiApiKey}
+                                                onChange={(e) => setBotConfig((prev) => ({ ...prev, aiApiKey: e.target.value }))}
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Leave empty to use <code>GEMINI_API_KEY</code> / <code>OPENAI_API_KEY</code> from <code>.env</code>.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3 text-xs space-y-1">
+                                        <p className="font-semibold text-indigo-700 dark:text-indigo-300">💡 Available Commands on WhatsApp:</p>
+                                        <p className="text-muted-foreground">• <code>{botConfig.prefix}ask &lt;question&gt;</code> — Ask any question, translation, or text drafting.</p>
+                                        <p className="text-muted-foreground">• Reply to any message with <code>{botConfig.prefix}ask translate to Tamil</code> to transform it.</p>
+                                        <p className="text-muted-foreground">• <code>{botConfig.prefix}summary &lt;url&gt;</code> — Generates a 3-5 bullet point summary of any web link.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="pt-2">
+                                <Button className="w-full sm:w-auto" onClick={handleSaveBot} disabled={botLoading || !sessionId}>
+                                    {botLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Save AI Settings
                                 </Button>
                             </div>
                         </CardContent>

@@ -41,6 +41,9 @@ export async function GET(
             enableSticker: true,
             enablePing: true,
             enableUptime: true,
+            enableAi: true,
+            aiApiKey: null,
+            aiProvider: "gemini",
             botName: "WA-AKG Bot",
             removeBgApiKey: null,
             enableVideoSticker: true,
@@ -122,13 +125,18 @@ export async function POST(
             "antiLinkLimit",
             "antiLinkScope",
             "antiLinkGroups",
+            "enableAi",
+            "aiProvider",
         ];
         for (const key of passthrough) {
             if (body[key] !== undefined) updateFields[key] = body[key];
         }
-        // removeBgApiKey: only update if explicitly provided (allow null to clear)
+        // removeBgApiKey & aiApiKey: only update if explicitly provided (allow null to clear)
         if (Object.prototype.hasOwnProperty.call(body, "removeBgApiKey")) {
             updateFields.removeBgApiKey = body.removeBgApiKey || null;
+        }
+        if (Object.prototype.hasOwnProperty.call(body, "aiApiKey")) {
+            updateFields.aiApiKey = body.aiApiKey ? body.aiApiKey.trim() : null;
         }
 
         // Upsert Config
@@ -150,6 +158,9 @@ export async function POST(
                 maxStickerDuration: body.maxStickerDuration || 10,
                 enablePing: body.enablePing ?? true,
                 enableUptime: body.enableUptime ?? true,
+                enableAi: body.enableAi ?? true,
+                aiApiKey: body.aiApiKey ? body.aiApiKey.trim() : null,
+                aiProvider: body.aiProvider || "gemini",
                 removeBgApiKey: body.removeBgApiKey || null,
                 prefix: body.prefix || "#",
                 antiSpamEnabled: body.antiSpamEnabled ?? false,

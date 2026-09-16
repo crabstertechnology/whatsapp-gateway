@@ -9,6 +9,7 @@ import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { logger } from "@/lib/logger";
+import { askAI, summarizeUrl } from "@/lib/ai-service";
 
 const execAsync = promisify(exec);
 
@@ -28,6 +29,9 @@ const DEFAULT_CONFIG = {
     maxStickerDuration: 10,
     enablePing: true,
     enableUptime: true,
+    enableAi: true,
+    aiApiKey: null as string | null,
+    aiProvider: "gemini",
     botName: "WA-AKG Bot",
     prefix: "#",
     removeBgApiKey: null as string | null
@@ -263,6 +267,81 @@ export async function handleBotCommand(
                 break;
             }
 
+            case "ask":
+            case "ai": {
+                if ((config as any).enableAi === false) return;
+
+                const quotedMsg = messageContent?.extendedTextMessage?.contextInfo?.quotedMessage;
+                const quotedText = quotedMsg?.conversation || quotedMsg?.extendedTextMessage?.text || "";
+                
+                const userQuery = args.join(" ").trim();
+                let fullPrompt = "";
+
+                if (userQuery && quotedText) {
+                    fullPrompt = `Context from replied message:\n"${quotedText}"\n\nUser question/instruction: ${userQuery}`;
+                } else if (userQuery) {
+                    fullPrompt = userQuery;
+                } else if (quotedText) {
+                    fullPrompt = `Please explain, answer, or assist with this message:\n"${quotedText}"`;
+                }
+
+                if (!fullPrompt) {
+                    await sock.sendMessage(remoteJid, {
+                        text: `❓ *Usage:*\n• \`${prefix}ask <your question>\` (e.g. \`${prefix}ask write a leave email\`)\n• Or reply to any message with \`${prefix}ask <instruction>\` (e.g. translate to French, explain)`
+                    }, { quoted: msg });
+                    return;
+                }
+
+                // Send thinking reaction
+                await sock.sendMessage(remoteJid, { react: { text: "⏳", key: msg.key } }).catch(() => {});
+
+                const answer = await askAI(fullPrompt, {
+                    apiKey: (config as any).aiApiKey,
+                    provider: (config as any).aiProvider
+                });
+
+                await sock.sendMessage(remoteJid, {
+                    text: `🤖 *AI Assistant:*\n\n${answer}`
+                }, { quoted: msg });
+
+                await sock.sendMessage(remoteJid, { react: { text: "💡", key: msg.key } }).catch(() => {});
+                break;
+            }
+
+            case "summary":
+            case "summarize": {
+                if ((config as any).enableAi === false) return;
+
+                const quotedMsg = messageContent?.extendedTextMessage?.contextInfo?.quotedMessage;
+                const quotedText = quotedMsg?.conversation || quotedMsg?.extendedTextMessage?.text || "";
+                const combinedText = `${args.join(" ")} ${quotedText}`.trim();
+
+                const urlMatch = combinedText.match(/https?:\/\/[^\s]+/i);
+                if (!urlMatch) {
+                    await sock.sendMessage(remoteJid, {
+                        text: `❓ *Usage:*\n• \`${prefix}summary <article_link>\`\n• Or reply to any link with \`${prefix}summary\``
+                    }, { quoted: msg });
+                    return;
+                }
+
+                const targetUrl = urlMatch[0];
+
+                // Send thinking reaction
+                await sock.sendMessage(remoteJid, { react: { text: "⏳", key: msg.key } }).catch(() => {});
+
+                const summaryResult = await summarizeUrl(targetUrl, {
+                    apiKey: (config as any).aiApiKey,
+                    provider: (config as any).aiProvider
+                });
+
+                await sock.sendMessage(remoteJid, {
+                    text: summaryResult
+                }, { quoted: msg });
+
+                await sock.sendMessage(remoteJid, { react: { text: "📰", key: msg.key } }).catch(() => {});
+                break;
+            }
+
             case "id": {
                 await sock.sendMessage(remoteJid, {
                     text: `*Chat ID:* \`${remoteJid}\``
@@ -449,6 +528,8 @@ export async function handleBotCommand(
 🤖 *${botName} Menu* 🤖
 
 📌 *Commands:*
+• *${prefix}ask* / *${prefix}ai* <tanya>: Tanya AI / terjemah / buat teks
+• *${prefix}summary* <link>: Rangkum artikel / berita dari link
 • *${prefix}sticker* / *${prefix}s*: Convert Image/Video to Sticker
   - Supports Images, GIFs, and Videos (max ${(config as any).maxStickerDuration || 10}s)
   - Use *${prefix}sticker nobg* to remove background (Images only)
