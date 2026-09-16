@@ -57,3 +57,4 @@ server.log
 
 # nuclei (security scanner) - external tool
 /nuclei/
+.neon
