@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { BotMessageSquare, Loader2, Plus, Trash2, MessageCircleReply, Image as ImageIcon, Pencil } from "lucide-react";
+import { BotMessageSquare, Loader2, Plus, Trash2, MessageCircleReply, Image as ImageIcon, Pencil, Users, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -42,6 +42,7 @@ interface AutoReply {
     isMedia: boolean;
     mediaUrl: string | null;
     triggerType: string;
+    targetJids?: string[] | null;
     createdAt: Date;
 }
 
@@ -58,6 +59,8 @@ export default function AutoReplyPage() {
     const [response, setResponse] = useState("");
     const [matchType, setMatchType] = useState("EXACT");
     const [triggerType, setTriggerType] = useState("ALL");
+    const [targetJids, setTargetJids] = useState<string[]>([]);
+    const [newTargetJid, setNewTargetJid] = useState("");
 
     // Edit states
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -66,6 +69,8 @@ export default function AutoReplyPage() {
     const [editResponse, setEditResponse] = useState("");
     const [editMatchType, setEditMatchType] = useState("EXACT");
     const [editTriggerType, setEditTriggerType] = useState("ALL");
+    const [editTargetJids, setEditTargetJids] = useState<string[]>([]);
+    const [newEditTargetJid, setNewEditTargetJid] = useState("");
 
     const [botStatus, setBotStatus] = useState<{ enabled: boolean; autoReplyMode: string } | null>(null);
 
@@ -103,10 +108,41 @@ export default function AutoReplyPage() {
         }
     };
 
+    const addTargetJid = (isEdit: boolean) => {
+        const val = (isEdit ? newEditTargetJid : newTargetJid).trim();
+        if (!val) return;
+        let formatted = val;
+        if (!formatted.includes('@')) formatted += '@s.whatsapp.net';
+        if (isEdit) {
+            if (!editTargetJids.includes(formatted)) {
+                setEditTargetJids(prev => [...prev, formatted]);
+            }
+            setNewEditTargetJid("");
+        } else {
+            if (!targetJids.includes(formatted)) {
+                setTargetJids(prev => [...prev, formatted]);
+            }
+            setNewTargetJid("");
+        }
+    };
+
+    const removeTargetJid = (isEdit: boolean, jid: string) => {
+        if (isEdit) {
+            setEditTargetJids(prev => prev.filter(j => j !== jid));
+        } else {
+            setTargetJids(prev => prev.filter(j => j !== jid));
+        }
+    };
+
     const handleCreate = async () => {
         if (!sessionId) return;
         if (!keyword.trim() || !response.trim()) {
             toast.error("Keyword and response are required");
+            return;
+        }
+
+        if (triggerType === 'SPECIFIC' && targetJids.length === 0) {
+            toast.error("Please add at least one contact number for this rule");
             return;
         }
 
@@ -118,6 +154,7 @@ export default function AutoReplyPage() {
                 response: response.trim(),
                 matchType,
                 triggerType,
+                targetJids: triggerType === 'SPECIFIC' ? targetJids : undefined,
                 isMedia: false, // For simplicity in this V1 UI
                 mediaUrl: null
             });
@@ -152,6 +189,8 @@ export default function AutoReplyPage() {
         setResponse("");
         setMatchType("EXACT");
         setTriggerType("ALL");
+        setTargetJids([]);
+        setNewTargetJid("");
     };
 
     const handleEdit = (rule: AutoReply) => {
@@ -160,6 +199,8 @@ export default function AutoReplyPage() {
         setEditResponse(rule.response);
         setEditMatchType(rule.matchType);
         setEditTriggerType(rule.triggerType);
+        setEditTargetJids(Array.isArray(rule.targetJids) ? (rule.targetJids as string[]) : []);
+        setNewEditTargetJid("");
         setIsEditOpen(true);
     };
 
@@ -170,6 +211,11 @@ export default function AutoReplyPage() {
             return;
         }
 
+        if (editTriggerType === 'SPECIFIC' && editTargetJids.length === 0) {
+            toast.error("Please add at least one contact number for this rule");
+            return;
+        }
+
         setSubmitting(true);
         try {
             await updateAutoReply(sessionId, editId, {
@@ -177,6 +223,7 @@ export default function AutoReplyPage() {
                 response: editResponse.trim(),
                 matchType: editMatchType,
                 triggerType: editTriggerType,
+                targetJids: editTriggerType === 'SPECIFIC' ? editTargetJids : undefined,
                 isMedia: false,
                 mediaUrl: null
             });
@@ -282,9 +329,62 @@ export default function AutoReplyPage() {
                                         <SelectItem value="PRIVATE">Private Chats Only</SelectItem>
                                         <SelectItem value="GROUP">Group Chats Only</SelectItem>
                                         <SelectItem value="WHITELIST">Whitelisted Only (Bot Settings)</SelectItem>
+                                        <SelectItem value="SPECIFIC">Specific Contacts (Individual Person)</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {triggerType === 'SPECIFIC' && (
+                                <div className="space-y-3 p-3 bg-muted/40 rounded-lg border border-border/60 animate-in fade-in duration-200">
+                                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                                        <Users className="w-3.5 h-3.5 text-primary" />
+                                        Target WhatsApp Numbers / IDs
+                                    </Label>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Paste the phone number or ID of the specific person who should receive this auto-reply.
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="e.g. 919876543210"
+                                            value={newTargetJid}
+                                            onChange={(e) => setNewTargetJid(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    addTargetJid(false);
+                                                }
+                                            }}
+                                            className="h-9 text-xs"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => addTargetJid(false)}
+                                            className="h-9 px-3 shrink-0"
+                                        >
+                                            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                                        </Button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                        {targetJids.map(jid => (
+                                            <div key={jid} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-xs font-medium">
+                                                <span>{jid.replace('@s.whatsapp.net', '')}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeTargetJid(false, jid)}
+                                                    className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {targetJids.length === 0 && (
+                                            <p className="text-[11px] text-destructive italic">⚠️ Please add at least one number.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="space-y-2">
                                 <Label>Reply Message</Label>
@@ -363,6 +463,15 @@ export default function AutoReplyPage() {
                                             <Badge variant="outline" className="text-muted-foreground font-normal shrink-0">{rule.matchType}</Badge>
                                             {rule.triggerType === 'WHITELIST' ? (
                                                 <Badge className="font-normal shrink-0 text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Whitelisted Only</Badge>
+                                            ) : rule.triggerType === 'SPECIFIC' ? (
+                                                <Badge className="font-normal shrink-0 text-[10px] bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                                                    <Users className="w-2.5 h-2.5" />
+                                                    {Array.isArray(rule.targetJids) && rule.targetJids.length > 0
+                                                        ? (rule.targetJids.length === 1 
+                                                            ? rule.targetJids[0].replace('@s.whatsapp.net', '') 
+                                                            : `${rule.targetJids.length} Contacts`)
+                                                        : 'Specific'}
+                                                </Badge>
                                             ) : (
                                                 <Badge variant="secondary" className="font-normal shrink-0 text-[10px]">{rule.triggerType}</Badge>
                                             )}
@@ -458,9 +567,62 @@ export default function AutoReplyPage() {
                                     <SelectItem value="PRIVATE">Private Chats Only</SelectItem>
                                     <SelectItem value="GROUP">Group Chats Only</SelectItem>
                                     <SelectItem value="WHITELIST">Whitelisted Only (Bot Settings)</SelectItem>
+                                    <SelectItem value="SPECIFIC">Specific Contacts (Individual Person)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {editTriggerType === 'SPECIFIC' && (
+                            <div className="space-y-3 p-3 bg-muted/40 rounded-lg border border-border/60 animate-in fade-in duration-200">
+                                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                                    <Users className="w-3.5 h-3.5 text-primary" />
+                                    Target WhatsApp Numbers / IDs
+                                </Label>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Paste the phone number or ID of the specific person who should receive this auto-reply.
+                                </p>
+                                <div className="flex gap-2">
+                                    <Input
+                                        placeholder="e.g. 919876543210"
+                                        value={newEditTargetJid}
+                                        onChange={(e) => setNewEditTargetJid(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                addTargetJid(true);
+                                            }
+                                        }}
+                                        className="h-9 text-xs"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => addTargetJid(true)}
+                                        className="h-9 px-3 shrink-0"
+                                    >
+                                        <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                                    </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {editTargetJids.map(jid => (
+                                        <div key={jid} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-xs font-medium">
+                                            <span>{jid.replace('@s.whatsapp.net', '')}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeTargetJid(true, jid)}
+                                                className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {editTargetJids.length === 0 && (
+                                        <p className="text-[11px] text-destructive italic">⚠️ Please add at least one number.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label>Reply Message</Label>

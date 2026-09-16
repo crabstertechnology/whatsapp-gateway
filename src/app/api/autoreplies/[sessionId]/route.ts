@@ -86,7 +86,8 @@ export async function POST(
             isMedia: isMedia || false,
             mediaUrl: mediaUrl || null,
             // @ts-ignore: triggerType exists in generated schema but may be stale in editor types
-            triggerType: (body.triggerType as string) || "ALL"
+            triggerType: (body.triggerType as string) || "ALL",
+            targetJids: Array.isArray(body.targetJids) ? body.targetJids : undefined
         };
 
         const newRule = await prisma.autoReply.create({

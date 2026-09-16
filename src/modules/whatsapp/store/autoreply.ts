@@ -180,6 +180,17 @@ export async function bindAutoReply(sock: WASocket, sessionId: string) {
                             });
                             if (!isWhitelisted) continue;
                         }
+                        if (triggerType === 'SPECIFIC') {
+                            const targetJids = (rule as any).targetJids;
+                            const allowed: string[] = Array.isArray(targetJids) ? targetJids : [];
+                            if (allowed.length === 0) continue; // No specific contacts configured for this rule
+                            const senderClean = senderJid.split('@')[0].split(':')[0];
+                            const isMatched = allowed.some((item: string) => {
+                                const cleanItem = item.split('@')[0].split(':')[0];
+                                return senderClean === cleanItem || senderJid.includes(cleanItem);
+                            });
+                            if (!isMatched) continue;
+                        }
 
                         logger.info("AutoReply", `Match: ${rule.keyword} -> ${remoteJid}`);
 

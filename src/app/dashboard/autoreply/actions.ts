@@ -51,7 +51,7 @@ export async function getAutoReplies(sessionId: string) {
 }
 
 // Create a new auto reply directly to DB
-export async function createAutoReply(sessionId: string, data: { keyword: string; response: string; matchType: string; isMedia: boolean; mediaUrl?: string | null; triggerType: string }) {
+export async function createAutoReply(sessionId: string, data: { keyword: string; response: string; matchType: string; isMedia: boolean; mediaUrl?: string | null; triggerType: string; targetJids?: string[] | null }) {
     const nextAuthSession = await getAuthenticatedUserForAction();
     if (!nextAuthSession) {
         throw new Error("Unauthorized");
@@ -85,7 +85,8 @@ export async function createAutoReply(sessionId: string, data: { keyword: string
         isMedia: data.isMedia || false,
         mediaUrl: data.mediaUrl || null,
         // @ts-ignore
-        triggerType: data.triggerType || "ALL"
+        triggerType: data.triggerType || "ALL",
+        targetJids: data.targetJids && data.targetJids.length > 0 ? data.targetJids : undefined
     };
 
     const newRule = await prisma.autoReply.create({
@@ -119,7 +120,7 @@ export async function deleteAutoReply(sessionId: string, ruleId: string) {
     return { success: true };
 }
 
-export async function updateAutoReply(sessionId: string, ruleId: string, data: { keyword: string; response: string; matchType: string; isMedia: boolean; mediaUrl?: string | null; triggerType: string }) {
+export async function updateAutoReply(sessionId: string, ruleId: string, data: { keyword: string; response: string; matchType: string; isMedia: boolean; mediaUrl?: string | null; triggerType: string; targetJids?: string[] | null }) {
     const nextAuthSession = await getAuthenticatedUserForAction();
     if (!nextAuthSession) {
         throw new Error("Unauthorized");
@@ -150,7 +151,8 @@ export async function updateAutoReply(sessionId: string, ruleId: string, data: {
         isMedia: data.isMedia || false,
         mediaUrl: data.mediaUrl || null,
         // @ts-ignore
-        triggerType: data.triggerType || "ALL"
+        triggerType: data.triggerType || "ALL",
+        targetJids: data.targetJids ? data.targetJids : []
     };
 
     const updatedRule = await prisma.autoReply.update({

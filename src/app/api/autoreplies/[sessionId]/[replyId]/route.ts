@@ -19,7 +19,7 @@ export async function PUT(
         }
 
         const body = await request.json();
-        const { keyword, response, matchType, triggerType, isMedia, mediaUrl } = body;
+        const { keyword, response, matchType, triggerType, isMedia, mediaUrl, targetJids } = body;
 
         if (!keyword || !response) {
             return NextResponse.json({ status: false, message: "Keyword and response are required", error: "Keyword and response are required" }, { status: 400 });
@@ -32,6 +32,7 @@ export async function PUT(
                 response,
                 matchType: matchType || "EXACT",
                 triggerType: triggerType || "ALL",
+                targetJids: Array.isArray(targetJids) ? targetJids : undefined,
                 isMedia: isMedia || false,
                 mediaUrl: mediaUrl || null
             }
