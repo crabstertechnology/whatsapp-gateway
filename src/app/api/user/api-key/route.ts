@@ -48,7 +48,7 @@ export async function POST() {
 
         return NextResponse.json({
             status: true,
-            message: "API key generated. Simpan sekarang — key ini tidak akan ditampilkan lagi.",
+            message: "API key generated. Save it now — this key will not be shown again.",
             data: { apiKey: newApiKey }
         });
     } catch (error) {

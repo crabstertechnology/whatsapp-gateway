@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import type { WASocket, WAMessage, Contact } from "@whiskeysockets/baileys";
 import { normalizeMessageContent } from "@whiskeysockets/baileys";
-import { onMessageReceived, onMessageSent, dispatchWebhook, downloadAndSaveMedia } from "@/lib/webhook";
 import { handleBotCommand, setSessionStartTime } from "../bot/command-handler";
+import { handleAiContactChat } from "../bot/ai-chat";
 import { resolveToPhoneJid, isLidJid, normalizeJid } from "@/lib/jid-utils";
 import { waManager } from "../manager";
 
 import { Server } from "socket.io";
 import { logger } from "@/lib/logger";
+import { dispatchWebhook, downloadAndSaveMedia, onMessageSent, onMessageReceived } from "@/lib/webhook";
 
 export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server | null) => {
     // Set start time for uptime command
@@ -64,9 +65,15 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
         const processedMessages = [];
 
         // Fetch Bot Config for auto-read & welcome message
-        const config = await prisma.botConfig.findUnique({
+        const config = await prisma.botConfig.findFirst({
             where: { sessionId: dbSessionId }
         });
+
+        if (!config) {
+            logger.warn("Store", `No BotConfig found for session ${sessionId} (dbId: ${dbSessionId}). AI chat will be skipped.`);
+        } else {
+            logger.debug("Store", `BotConfig loaded: enableAiChat=${(config as any).enableAiChat}, aiChatAllowedJids=${JSON.stringify((config as any).aiChatAllowedJids)}`);
+        }
 
         // Read session config (ghost mode disables blue ticks)
         const sessionRow = await prisma.session.findUnique({
@@ -88,10 +95,21 @@ export const bindSessionStore = (sock: WASocket, sessionId: string, io: Server |
                     processedMessages.push(savedMessage);
                 }
 
-                // Execute Bot Commands (Only for Notify / New Messages)
+                // Execute AI Contact Chat or Bot Commands (Only for Notify / New Messages)
                 if (type === 'notify' && savedMessage) {
-                    // Run in background, don't await strictly to not block saving
-                    handleBotCommand(sock, sessionId, msg).catch(e => logger.error("Bot", "Bot Handler Error", e));
+                    const rawRemoteJid = msg.key.remoteJid || '';
+                    const resolvedRemoteJid = (savedMessage as any)?.remoteJid || rawRemoteJid;
+                    logger.info("Store", `[AI] Checking AI chat for rawRemoteJid=${rawRemoteJid}, resolvedRemoteJid=${resolvedRemoteJid}, fromMe=${msg.key.fromMe}`);
+
+                    // Check AI Chat for selected contacts first
+                    handleAiContactChat(sock, sessionId, msg, config, resolvedRemoteJid).then(handled => {
+                        if (!handled) {
+                            // If not an AI chat, process standard bot commands (e.g. #ping, #ask)
+                            handleBotCommand(sock, sessionId, msg).catch(e => logger.error("Bot", "Bot Handler Error", e));
+                        } else {
+                            logger.info("Store", `[AI] Message from ${rawRemoteJid} (${resolvedRemoteJid}) handled by AI chat`);
+                        }
+                    }).catch(e => logger.error("AIChat", "AI Chat Handler Error", e));
                 }
             } catch (error) {
                 logger.error("Store", "Error saving message", error);

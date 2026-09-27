@@ -199,17 +199,37 @@ model Story {
 }
 
 model ScheduledMessage {
-  id          String   @id @default(cuid())
-  sessionId   String
-  jid         String
-  content     String   @db.Text
-  mediaUrl    String?
-  mediaType   String?  // image, video, document, etc.
-  sendAt      DateTime
-  status      String   @default("PENDING") // PENDING, SENT, FAILED
-  createdAt   DateTime @default(now())
+  id             String    @id @default(cuid())
+  sessionId      String
+  jid            String
+  recipientName  String?
+  content        String    @db.Text
+  mediaUrl       String?
+  mediaType      String?  // image, video, document, etc.
+  sendAt         DateTime
+  repeatType     String    @default("NONE") // NONE, DAILY, WEEKLY, CUSTOM
+  repeatInterval Int       @default(1) // Every X days
+  repeatCount    Int?      // How many times to repeat
+  repeatUntil    DateTime? // End date
+  lastSentAt     DateTime?
+  status         String    @default("PENDING") // PENDING, SENT, COMPLETED, FAILED
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
 
-  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session        Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model NewsSubscription {
+  id           String    @id @default(cuid())
+  sessionId    String?
+  name         String?   // Recipient or group name
+  jid          String    // WhatsApp number, group JID, or LID
+  deliveryTime String    @default("07:30") // HH:mm IST
+  enabled      Boolean   @default(true)
+  categories   Json?     // Optional categories
+  lastSentAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 // Store for Baileys MultiFileAuthState (in DB)
@@ -272,6 +292,13 @@ model BotConfig {
   aiApiKey      String?
   aiProvider    String   @default("gemini") // gemini, openai
   prefix        String   @default("#")
+  
+  // Sasi AI Conversational Chatbot (Selected Contacts)
+  enableAiChat       Boolean  @default(false)
+  aiChatAllowedJids  Json?    // Array of JIDs allowed to chat with AI e.g. ["919629213731@s.whatsapp.net"]
+  aiChatEndpoint     String?  @default("http://127.0.0.1:7860/api/chat")
+  aiChatProvider     String?  @default("local") // local (Gemma 3), gemini
+
   
   // Anti-Spam / Rate Limit
   antiSpamEnabled Boolean @default(false)

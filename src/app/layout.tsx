@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.BASE_URL || process.env.NEXTAUTH_URL || "https://rifalos.shop"),
-  title: "RifalosID | Premium WhatsApp Management",
-  description: "Next-generation WhatsApp Gateway & Management Dashboard",
+  metadataBase: new URL(process.env.BASE_URL || process.env.NEXTAUTH_URL || "http://localhost:3030"),
+  title: "WhatsApp Gateway",
+  description: "WhatsApp Gateway & Management Dashboard",
   robots: {
     index: process.env.NEXT_PUBLIC_ALLOW_INDEXING === "true",
     follow: process.env.NEXT_PUBLIC_ALLOW_INDEXING === "true",

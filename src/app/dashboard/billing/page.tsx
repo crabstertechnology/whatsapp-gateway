@@ -90,13 +90,13 @@ export default function BillingPage() {
                 if (status === "PAID") {
                     clearInterval(interval);
                     setPolling(false);
-                    toast.success(`Pembayaran berhasil! Plan ${checkout.planName} aktif 🎉`);
+                    toast.success(`Payment successful! Plan ${checkout.planName} is active 🎉`);
                     setCheckout(null);
                     loadUsage();
                 } else if (["EXPIRED", "FAILED", "CANCELLED"].includes(status)) {
                     clearInterval(interval);
                     setPolling(false);
-                    toast.error(`Pembayaran ${status.toLowerCase()}. Silakan coba lagi.`);
+                    toast.error(`Payment ${status.toLowerCase()}. Please try again.`);
                     setCheckout(null);
                 }
             } catch {
@@ -114,7 +114,7 @@ export default function BillingPage() {
         const cfg = PLANS[plan];
         if (plan === "FREE") return;
         if (cfg.price === null) {
-            toast.info("Plan Enterprise bersifat custom. Silakan hubungi admin.");
+            toast.info("Enterprise plans are custom. Please contact the administrator.");
             return;
         }
         setBuying(plan);
@@ -126,16 +126,16 @@ export default function BillingPage() {
             });
             const json = await res.json();
             if (!json.status) {
-                toast.error(json.message || "Gagal membuat transaksi");
+                toast.error(json.message || "Failed to create transaction");
                 return;
             }
             if (!json.data.qrString && !json.data.qrImageUrl) {
-                toast.error("Gateway tidak mengembalikan QR. Cek konfigurasi KlikQRIS.");
+                toast.error("Gateway did not return QR. Check KlikQRIS configuration.");
                 return;
             }
             setCheckout(json.data);
         } catch (e: any) {
-            toast.error(e?.message || "Gagal membuat transaksi");
+            toast.error(e?.message || "Failed to create transaction");
         } finally {
             setBuying(null);
         }
@@ -144,19 +144,19 @@ export default function BillingPage() {
     return (
         <div className="space-y-8 p-4 md:p-6 max-w-6xl mx-auto">
             <div>
-                <h1 className="text-2xl font-bold tracking-tight">Billing & Plan</h1>
-                <p className="text-muted-foreground">Kelola langganan dan lihat pemakaian API kamu.</p>
+                <h1 className="text-2xl font-bold tracking-tight">Billing & Plans</h1>
+                <p className="text-muted-foreground">Manage your subscription and view API usage.</p>
             </div>
 
             {/* Current plan + usage */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Plan Saat Ini</CardTitle>
+                        <CardTitle>Current Plan</CardTitle>
                         <CardDescription>
-                            {loading ? "Memuat..." : `${usage?.planName || "Free"}`}
+                            {loading ? "Loading..." : `${usage?.planName || "Free"}`}
                             {usage?.planExpiresAt
-                                ? ` · aktif s/d ${new Date(usage.planExpiresAt).toLocaleDateString("id-ID")}`
+                                ? ` · active until ${new Date(usage.planExpiresAt).toLocaleDateString()}`
                                 : ""}
                         </CardDescription>
                     </div>
@@ -167,11 +167,11 @@ export default function BillingPage() {
                 <CardContent className="space-y-5">
                     {usage ? (
                         <>
-                            <UsageBar label="Request hari ini" used={usage.dayCount} limit={usage.dailyLimit} />
-                            <UsageBar label="Request bulan ini" used={usage.monthCount} limit={usage.monthlyLimit} />
+                            <UsageBar label="Requests today" used={usage.dayCount} limit={usage.dailyLimit} />
+                            <UsageBar label="Requests this month" used={usage.monthCount} limit={usage.monthlyLimit} />
                         </>
                     ) : (
-                        <p className="text-sm text-muted-foreground">Memuat pemakaian...</p>
+                        <p className="text-sm text-muted-foreground">Loading usage...</p>
                     )}
                 </CardContent>
             </Card>
@@ -181,9 +181,9 @@ export default function BillingPage() {
                 <Card className="border-primary">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
-                            <CardTitle>Bayar {checkout.planName}</CardTitle>
+                            <CardTitle>Pay {checkout.planName}</CardTitle>
                             <CardDescription>
-                                Scan QRIS di bawah pakai aplikasi e-wallet / mobile banking.
+                                Scan the QR code below using your payment or banking app.
                             </CardDescription>
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => setCheckout(null)}>
@@ -203,12 +203,12 @@ export default function BillingPage() {
                             <p className="text-2xl font-bold">{formatIDR(checkout.totalAmount ?? checkout.amount)}</p>
                             {checkout.totalAmount && checkout.totalAmount !== checkout.amount && (
                                 <p className="text-xs text-muted-foreground">
-                                    Harga plan {formatIDR(checkout.amount)} + kode unik
+                                    Plan price {formatIDR(checkout.amount)} + unique code
                                 </p>
                             )}
                             <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 mt-1">
                                 {polling && <Loader2 className="h-4 w-4 animate-spin" />}
-                                Menunggu pembayaran...
+                                Waiting for payment...
                             </p>
                         </div>
                     </CardContent>
@@ -217,7 +217,7 @@ export default function BillingPage() {
 
             {/* Plans */}
             <div>
-                <h2 className="text-lg font-semibold mb-4">Pilih Plan</h2>
+                <h2 className="text-lg font-semibold mb-4">Choose Plan</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {PLAN_ORDER.map((id) => {
                         const plan = PLANS[id];
@@ -231,14 +231,14 @@ export default function BillingPage() {
                             >
                                 {plan.highlight && (
                                     <div className="absolute top-0 right-0 flex items-center gap-1 rounded-bl-xl bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground">
-                                        <Sparkles className="h-3 w-3" /> Populer
+                                        <Sparkles className="h-3 w-3" /> Popular
                                     </div>
                                 )}
                                 <h3 className="font-bold">{plan.name}</h3>
                                 <div className="mt-2 mb-3">
                                     <span className="text-2xl font-extrabold">{formatIDR(plan.price)}</span>
                                     {!isFree && !isCustom && (
-                                        <span className="text-muted-foreground text-xs">/bln</span>
+                                        <span className="text-muted-foreground text-xs">/mo</span>
                                     )}
                                 </div>
                                 <ul className="space-y-2 mb-5 flex-1">
@@ -258,11 +258,11 @@ export default function BillingPage() {
                                     {buying === id ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : isCurrent ? (
-                                        "Plan Aktif"
+                                        "Active Plan"
                                     ) : isFree ? (
                                         "Default"
                                     ) : isCustom ? (
-                                        "Hubungi Kami"
+                                        "Contact Us"
                                     ) : (
                                         "Upgrade"
                                     )}

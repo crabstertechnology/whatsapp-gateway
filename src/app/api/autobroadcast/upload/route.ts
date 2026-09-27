@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         const MAX = 4 * 1024 * 1024;
         if (file.size > MAX) {
             return NextResponse.json(
-                { status: false, message: "File terlalu besar (maks 4MB untuk media tersimpan). Untuk file besar, pakai URL media eksternal." },
+                { status: false, message: "File too large (max 4MB for stored media). For larger files, use an external media URL." },
                 { status: 400 }
             );
         }

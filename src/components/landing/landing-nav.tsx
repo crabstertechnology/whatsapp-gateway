@@ -40,17 +40,13 @@ export function LandingNav() {
                             <Bot className="h-5 w-5 md:h-6 md:w-6" />
                             <div className="absolute inset-0 rounded-full bg-primary blur-md -z-10 opacity-50 animate-pulse-glow" />
                         </div>
-                        <span className="text-foreground tracking-tight" translate="no">RifalosID</span>
+                        <span className="text-foreground tracking-tight" translate="no">WhatsApp Gateway</span>
                     </Link>
 
                     {/* Desktop nav */}
                     <nav className="hidden md:flex items-center gap-6 lg:gap-8">
-                        <Link href="/#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Features</Link>
-                        <Link href="/#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
+                        <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
                         <Link href="/docs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">API & Docs</Link>
-                        <Link href="https://github.com/vinsaeroy/WA-AKG" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                            <Github className="h-4 w-4" /> GitHub
-                        </Link>
                     </nav>
 
                     {/* Right side: hamburger (mobile) + sign in */}
@@ -77,14 +73,7 @@ export function LandingNav() {
                     <div className="md:hidden mt-2 mx-auto glass rounded-2xl border border-white/40 dark:border-white/10 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                         <nav className="flex flex-col p-2">
                             <Link
-                                href="/#features"
-                                onClick={close}
-                                className="px-4 py-3 text-sm font-medium text-foreground/80 hover:bg-foreground/5 rounded-xl transition-colors"
-                            >
-                                Features
-                            </Link>
-                            <Link
-                                href="/#pricing"
+                                href="/pricing"
                                 onClick={close}
                                 className="px-4 py-3 text-sm font-medium text-foreground/80 hover:bg-foreground/5 rounded-xl transition-colors"
                             >
@@ -96,15 +85,6 @@ export function LandingNav() {
                                 className="px-4 py-3 text-sm font-medium text-foreground/80 hover:bg-foreground/5 rounded-xl transition-colors"
                             >
                                 API & Docs
-                            </Link>
-                            <Link
-                                href="https://github.com/vinsaeroy/WA-AKG"
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={close}
-                                className="px-4 py-3 text-sm font-medium text-foreground/80 hover:bg-foreground/5 rounded-xl transition-colors flex items-center gap-2"
-                            >
-                                <Github className="h-4 w-4" /> GitHub
                             </Link>
                             <Link
                                 href={ctaHref}

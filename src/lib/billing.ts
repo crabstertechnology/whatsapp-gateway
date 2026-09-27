@@ -53,8 +53,8 @@ export async function markPaymentPaidAndActivate(paymentId: string): Promise<boo
         await tx.notification.create({
             data: {
                 userId: payment.userId,
-                title: `Plan ${cfg.name} aktif 🎉`,
-                message: `Pembayaran berhasil. Plan ${cfg.name} aktif sampai ${newExpiry.toLocaleString("id-ID")}.`,
+                title: `Plan ${cfg.name} active 🎉`,
+                message: `Payment successful. Plan ${cfg.name} is active until ${newExpiry.toLocaleDateString()}.`,
                 type: "SUCCESS",
                 href: "/dashboard/billing"
             }

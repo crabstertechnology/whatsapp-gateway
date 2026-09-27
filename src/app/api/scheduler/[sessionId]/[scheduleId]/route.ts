@@ -20,7 +20,7 @@ export async function PUT(
         }
 
         const body = await request.json();
-        const { jid, content, sendAt, mediaUrl, mediaType } = body;
+        const { jid, recipientName, content, sendAt, mediaUrl, mediaType, repeatType, repeatInterval, repeatCount, repeatUntil } = body;
 
         if (!jid || !content || !sendAt) {
             return NextResponse.json({ status: false, message: "JID, content, and sendAt are required", error: "JID, content, and sendAt are required" }, { status: 400 });
@@ -29,11 +29,11 @@ export async function PUT(
         // Fetch system timezone
         // @ts-ignore
         const systemConfig = await prisma.systemConfig.findUnique({ where: { id: "default" }, select: { timezone: true } });
-        const timezone = systemConfig?.timezone || "Asia/Jakarta";
+        const timezone = systemConfig?.timezone || "Asia/Kolkata";
 
         console.log(`[Scheduler:PUT] Received sendAt: ${sendAt}, using timezone: ${timezone}`);
         const utcDate = moment.tz(sendAt, timezone).toDate();
-        console.log(`[Scheduler:PUT] Resolved UTC Date: ${utcDate.toISOString()}`);
+        const untilDate = repeatUntil ? moment.tz(repeatUntil, timezone).toDate() : null;
 
         const msg = await prisma.scheduledMessage.findUnique({
             where: { id: scheduleId },
@@ -53,10 +53,16 @@ export async function PUT(
             where: { id: scheduleId },
             data: {
                 jid,
+                recipientName: recipientName || null,
                 content,
                 sendAt: utcDate,
                 mediaUrl: mediaUrl || null,
-                mediaType: mediaType || null
+                mediaType: mediaType || null,
+                repeatType: repeatType || "NONE",
+                repeatInterval: repeatInterval ? parseInt(repeatInterval, 10) : 1,
+                repeatCount: repeatCount ? parseInt(repeatCount, 10) : null,
+                repeatUntil: untilDate,
+                status: "PENDING"
             }
         });
 

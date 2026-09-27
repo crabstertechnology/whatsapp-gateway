@@ -131,7 +131,7 @@ export default function WebhooksPage() {
                 setApiKeySet(true);
                 setApiKeyHidden(false);
                 setShowApiKey(true); // tampilkan sekali, karena tidak bisa dilihat lagi nanti
-                toast.success("API key baru dibuat. Salin sekarang — tidak akan ditampilkan lagi!", { duration: 8000 });
+                toast.success("New API key generated. Copy it now — it will not be shown again!", { duration: 8000 });
             }
         } catch (error) {
             toast.error("Failed to generate API key");
@@ -266,12 +266,12 @@ export default function WebhooksPage() {
             const res = await fetch(`/api/webhooks/${sessionId}/${webhook.id}/test`, { method: "POST" });
             const data = await res.json();
             if (data?.ok) {
-                toast.success(data.message || "Webhook berhasil!");
+                toast.success(data.message || "Webhook test successful!");
             } else {
-                toast.error(data?.message || "Test webhook gagal", { duration: 6000 });
+                toast.error(data?.message || "Webhook test failed", { duration: 6000 });
             }
         } catch {
-            toast.error("Gagal menjalankan test webhook");
+            toast.error("Failed to run webhook test");
         } finally {
             setTestingId(null);
         }
@@ -382,7 +382,7 @@ export default function WebhooksPage() {
                     )}
                     {!apiKey && apiKeySet && apiKeyHidden && (
                         <p className="text-xs text-muted-foreground mt-2">
-                            Demi keamanan, API key disimpan ter-enkripsi dan tidak bisa ditampilkan lagi. Klik <b>Regenerate</b> kalau kamu lupa/kehilangan key-nya.
+                            For security reasons, API keys are stored encrypted and cannot be displayed again. Click <b>Regenerate</b> if you forgot or lost your key.
                         </p>
                     )}
                 </CardContent>

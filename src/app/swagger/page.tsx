@@ -56,12 +56,12 @@ export default function ApiDocsPage() {
             .then((json) => {
                 if (!active) return;
                 if (!json || typeof json !== "object" || !json.openapi)
-                    throw new Error("Spesifikasi OpenAPI tidak valid");
+                    throw new Error("Invalid OpenAPI specification");
                 setSpec(json);
             })
             .catch((e) => {
                 if (!active) return;
-                setSpecError(e?.message || "Gagal memuat dokumentasi");
+                setSpecError(e?.message || "Failed to load documentation");
             })
             .finally(() => {
                 if (active) setSpecLoading(false);
@@ -108,7 +108,7 @@ export default function ApiDocsPage() {
                 <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
                     <div className="text-center mb-6">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                            WA-AKG API Documentation
+                            WhatsApp Gateway API
                         </h1>
                         <p className="text-gray-600 text-sm">
                             Please authenticate to access Swagger UI
@@ -175,7 +175,7 @@ export default function ApiDocsPage() {
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 shadow-lg">
                 <div className="container mx-auto flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-bold">WA-AKG API Documentation</h1>
+                        <h1 className="text-2xl font-bold">WhatsApp Gateway API</h1>
                         <p className="text-blue-100 text-sm mt-1">
                             Interactive API documentation with 58+ endpoints
                         </p>
@@ -191,11 +191,11 @@ export default function ApiDocsPage() {
 
             <div className="container mx-auto">
                 {specLoading && (
-                    <div className="p-10 text-center text-gray-600">Memuat dokumentasi…</div>
+                    <div className="p-10 text-center text-gray-600">Loading documentation...</div>
                 )}
                 {specError && (
                     <div className="m-6 p-5 rounded-lg border border-red-200 bg-red-50 text-red-700">
-                        <p className="font-semibold mb-1">Gagal memuat dokumentasi API</p>
+                        <p className="font-semibold mb-1">Failed to load API documentation</p>
                         <p className="text-sm mb-3">{specError}</p>
                         <a
                             href="/api/docs"
@@ -203,7 +203,7 @@ export default function ApiDocsPage() {
                             rel="noreferrer"
                             className="text-sm font-medium underline hover:text-red-900"
                         >
-                            Buka spesifikasi mentah (/api/docs)
+                            Open raw specification (/api/docs)
                         </a>
                     </div>
                 )}

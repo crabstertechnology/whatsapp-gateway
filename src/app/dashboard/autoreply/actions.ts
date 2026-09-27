@@ -17,7 +17,7 @@ async function assertAutoReplyAllowed(user: { id: string; role?: string }) {
     const plan = effectivePlan(u || {});
     const cfg = await getMergedPlan(plan);
     if (!planAllows(cfg, "autoReply")) {
-        throw new Error(`Fitur Auto Reply tidak tersedia di plan ${plan}. Upgrade plan untuk mengaktifkannya.`);
+        throw new Error(`Auto Reply is not available on the ${plan} plan. Upgrade your plan to enable it.`);
     }
 }
 

@@ -66,6 +66,11 @@ export default function GlobalError({
                         Go home
                     </button>
                 </div>
+                {error?.message && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 rounded-md text-xs font-mono text-left max-h-48 overflow-auto whitespace-pre-wrap">
+                        {error.message}
+                    </div>
+                )}
                 {error?.digest && (
                     <p className="text-xs text-muted-foreground/60 mt-4 font-mono" translate="no">
                         ref: {error.digest}

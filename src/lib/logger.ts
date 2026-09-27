@@ -72,26 +72,48 @@ function formatArgs(args: any[]): string {
         .join(" ");
 }
 
+import fs from "fs";
+
+function appendToFile(level: string, tag: string, msg: string) {
+    try {
+        const time = new Date().toISOString();
+        const line = `[${time}] [${level}] [${tag}] ${msg}\n`;
+        // Write to /tmp/gateway_debug.log (mounted in proot)
+        fs.appendFileSync("/tmp/gateway_debug.log", line);
+    } catch {
+        // ignore file logging failures
+    }
+}
+
 export const logger = {
     info(tag: string, ...args: any[]) {
-        console.log(`${timestamp()} ${c.bgBlue}${c.white}${c.bold} INFO ${c.reset} ${formatTag(tag)} ${formatArgs(args)}`);
+        const formatted = formatArgs(args);
+        appendToFile("INFO", tag, formatted);
+        console.log(`${timestamp()} ${c.bgBlue}${c.white}${c.bold} INFO ${c.reset} ${formatTag(tag)} ${formatted}`);
     },
 
     success(tag: string, ...args: any[]) {
-        console.log(`${timestamp()} ${c.bgGreen}${c.black}${c.bold}  OK  ${c.reset} ${formatTag(tag)} ${c.green}${formatArgs(args)}${c.reset}`);
+        const formatted = formatArgs(args);
+        appendToFile("OK", tag, formatted);
+        console.log(`${timestamp()} ${c.bgGreen}${c.black}${c.bold}  OK  ${c.reset} ${formatTag(tag)} ${c.green}${formatted}${c.reset}`);
     },
 
     warn(tag: string, ...args: any[]) {
-        console.warn(`${timestamp()} ${c.bgYellow}${c.black}${c.bold} WARN ${c.reset} ${formatTag(tag)} ${c.yellow}${formatArgs(args)}${c.reset}`);
+        const formatted = formatArgs(args);
+        appendToFile("WARN", tag, formatted);
+        console.warn(`${timestamp()} ${c.bgYellow}${c.black}${c.bold} WARN ${c.reset} ${formatTag(tag)} ${c.yellow}${formatted}${c.reset}`);
     },
 
     error(tag: string, ...args: any[]) {
-        console.error(`${timestamp()} ${c.bgRed}${c.white}${c.bold} ERR! ${c.reset} ${formatTag(tag)} ${c.red}${formatArgs(args)}${c.reset}`);
+        const formatted = formatArgs(args);
+        appendToFile("ERROR", tag, formatted);
+        console.error(`${timestamp()} ${c.bgRed}${c.white}${c.bold} ERR! ${c.reset} ${formatTag(tag)} ${c.red}${formatted}${c.reset}`);
     },
 
     debug(tag: string, ...args: any[]) {
-        if (process.env.NODE_ENV === "production") return;
-        console.log(`${timestamp()} ${c.bgMagenta}${c.white}${c.bold} DBG  ${c.reset} ${formatTag(tag)} ${c.dim}${formatArgs(args)}${c.reset}`);
+        const formatted = formatArgs(args);
+        appendToFile("DEBUG", tag, formatted);
+        console.log(`${timestamp()} ${c.bgMagenta}${c.white}${c.bold} DBG  ${c.reset} ${formatTag(tag)} ${c.dim}${formatted}${c.reset}`);
     },
 
     /** Print a fancy startup banner */

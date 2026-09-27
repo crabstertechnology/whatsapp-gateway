@@ -64,14 +64,14 @@ export function PaymentSettingsCard() {
             });
             const data = await res.json();
             if (res.ok && data.status) {
-                toast.success("Pengaturan pembayaran disimpan");
+                toast.success("Payment settings saved");
                 setForm((f) => ({ ...f, klikqrisApiKey: "" }));
                 load();
             } else {
-                toast.error(data.message || "Gagal menyimpan");
+                toast.error(data.message || "Failed to save");
             }
         } catch {
-            toast.error("Gagal menyimpan pengaturan pembayaran");
+            toast.error("Failed to save payment settings");
         } finally {
             setSaving(false);
         }
@@ -84,16 +84,15 @@ export function PaymentSettingsCard() {
                     <CreditCard className="h-5 w-5" /> Payment Gateway (KlikQRIS)
                 </CardTitle>
                 <CardDescription>
-                    Khusus SUPERADMIN. API key disimpan aman di server dan dipakai untuk semua
-                    transaksi upgrade plan.
+                    SuperAdmin only. API keys are safely stored on the server and used for plan upgrade transactions.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                     <div>
-                        <Label>Aktifkan pembayaran</Label>
+                        <Label>Enable Payments</Label>
                         <p className="text-xs text-muted-foreground">
-                            Kalau mati, tombol upgrade plan akan menolak checkout.
+                            When disabled, plan upgrades will reject checkout attempts.
                         </p>
                     </div>
                     <Switch
@@ -116,7 +115,7 @@ export function PaymentSettingsCard() {
                     <Input
                         value={form.klikqrisMerchantId}
                         onChange={(e) => setForm((f) => ({ ...f, klikqrisMerchantId: e.target.value }))}
-                        placeholder="MERCHANT_ID_ANDA"
+                        placeholder="YOUR_MERCHANT_ID"
                     />
                 </div>
 
@@ -126,16 +125,16 @@ export function PaymentSettingsCard() {
                         type="password"
                         value={form.klikqrisApiKey}
                         onChange={(e) => setForm((f) => ({ ...f, klikqrisApiKey: e.target.value }))}
-                        placeholder={keySet ? `Tersimpan (${keyMasked || "••••"}) — isi untuk ganti` : "API_KEY_ANDA"}
+                        placeholder={keySet ? `Saved (${keyMasked || "••••"}) — fill to replace` : "YOUR_API_KEY"}
                     />
                     <p className="text-xs text-muted-foreground">
-                        Kosongkan kalau tidak ingin mengubah API key yang sudah tersimpan.
+                        Leave blank to keep existing stored API key.
                     </p>
                 </div>
 
                 <Button onClick={save} disabled={saving || loading} className="w-full">
                     {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Simpan Pengaturan Pembayaran
+                    Save Payment Settings
                 </Button>
             </CardContent>
         </Card>

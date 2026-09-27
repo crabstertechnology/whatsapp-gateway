@@ -20,8 +20,13 @@ export async function GET(
         }
 
         // @ts-ignore
-        const session = await (prisma as any).session.findUnique({
-            where: { sessionId },
+        const session = await (prisma as any).session.findFirst({
+            where: {
+                OR: [
+                    { sessionId },
+                    { id: sessionId }
+                ]
+            },
             select: { id: true, botConfig: true }
         });
 
@@ -29,42 +34,46 @@ export async function GET(
             return NextResponse.json({ status: false, message: "Session not found", error: "Session not found" }, { status: 404 });
         }
 
-        // Return config or default if null
-        session.botConfig = session.botConfig || {
-            enabled: true,
-            botMode: 'OWNER',
-            botAllowedJids: [],
-            botBlockedJids: [],
-            autoReplyMode: 'ALL',
-            autoReplyAllowedJids: [],
-            autoReplyBlockedJids: [],
-            enableSticker: true,
-            enablePing: true,
-            enableUptime: true,
-            enableAi: true,
-            aiApiKey: null,
-            aiProvider: "gemini",
-            botName: "WA-AKG Bot",
-            removeBgApiKey: null,
-            enableVideoSticker: true,
-            maxStickerDuration: 10,
-            prefix: "#",
-            antiSpamEnabled: false,
-            spamLimit: 5,
-            spamInterval: 10,
-            spamDelayMin: 1000,
-            spamDelayMax: 3000,
-            welcomeMessage: null,
-            autoRead: false,
-            alwaysOnline: false,
-            antiLinkMode: "OFF",
-            antiLinkAction: "DELETE",
-            antiLinkLimit: 3,
-            antiLinkScope: "ALL",
-            antiLinkGroups: [],
+        const raw = session.botConfig || {};
+        const safeBotConfig = {
+            enabled: raw.enabled ?? true,
+            botMode: raw.botMode || 'OWNER',
+            botAllowedJids: Array.isArray(raw.botAllowedJids) ? raw.botAllowedJids : [],
+            botBlockedJids: Array.isArray(raw.botBlockedJids) ? raw.botBlockedJids : [],
+            autoReplyMode: raw.autoReplyMode || 'ALL',
+            autoReplyAllowedJids: Array.isArray(raw.autoReplyAllowedJids) ? raw.autoReplyAllowedJids : [],
+            autoReplyBlockedJids: Array.isArray(raw.autoReplyBlockedJids) ? raw.autoReplyBlockedJids : [],
+            enableSticker: raw.enableSticker ?? true,
+            enablePing: raw.enablePing ?? true,
+            enableUptime: raw.enableUptime ?? true,
+            enableAi: false,
+            aiApiKey: raw.aiApiKey || "",
+            aiProvider: "local",
+            botName: raw.botName || "WA-AKG Bot",
+            removeBgApiKey: raw.removeBgApiKey || "",
+            enableVideoSticker: raw.enableVideoSticker ?? true,
+            maxStickerDuration: raw.maxStickerDuration ?? 10,
+            prefix: raw.prefix || "#",
+            antiSpamEnabled: raw.antiSpamEnabled ?? false,
+            spamLimit: raw.spamLimit ?? 5,
+            spamInterval: raw.spamInterval ?? 10,
+            spamDelayMin: raw.spamDelayMin ?? 1000,
+            spamDelayMax: raw.spamDelayMax ?? 3000,
+            welcomeMessage: raw.welcomeMessage || "",
+            autoRead: raw.autoRead ?? false,
+            alwaysOnline: raw.alwaysOnline ?? false,
+            antiLinkMode: raw.antiLinkMode || "OFF",
+            antiLinkAction: raw.antiLinkAction || "DELETE",
+            antiLinkLimit: raw.antiLinkLimit ?? 3,
+            antiLinkScope: raw.antiLinkScope || "ALL",
+            antiLinkGroups: Array.isArray(raw.antiLinkGroups) ? raw.antiLinkGroups : [],
+            enableAiChat: raw.enableAiChat ?? false,
+            aiChatAllowedJids: Array.isArray(raw.aiChatAllowedJids) ? raw.aiChatAllowedJids : [],
+            aiChatEndpoint: raw.aiChatEndpoint || "http://127.0.0.1:8080/v1/chat/completions",
+            aiChatProvider: "local",
         };
 
-        return NextResponse.json({ status: true, message: "Bot config fetched successfully", data: session.botConfig });
+        return NextResponse.json({ status: true, message: "Bot config fetched successfully", data: safeBotConfig });
     } catch (error) {
         console.error("Get Bot Config Error:", error);
         return NextResponse.json({ status: false, message: "Internal Server Error", error: "Internal Server Error" }, { status: 500 });
@@ -87,8 +96,13 @@ export async function POST(
         const body = await request.json();
 
         // Find session DB ID
-        const session = await prisma.session.findUnique({
-            where: { sessionId },
+        const session = await prisma.session.findFirst({
+            where: {
+                OR: [
+                    { sessionId },
+                    { id: sessionId }
+                ]
+            },
             select: { id: true }
         });
 
@@ -127,6 +141,10 @@ export async function POST(
             "antiLinkGroups",
             "enableAi",
             "aiProvider",
+            "enableAiChat",
+            "aiChatAllowedJids",
+            "aiChatEndpoint",
+            "aiChatProvider",
         ];
         for (const key of passthrough) {
             if (body[key] !== undefined) updateFields[key] = body[key];
@@ -158,9 +176,9 @@ export async function POST(
                 maxStickerDuration: body.maxStickerDuration || 10,
                 enablePing: body.enablePing ?? true,
                 enableUptime: body.enableUptime ?? true,
-                enableAi: body.enableAi ?? true,
-                aiApiKey: body.aiApiKey ? body.aiApiKey.trim() : null,
-                aiProvider: body.aiProvider || "gemini",
+                enableAi: false,
+                aiApiKey: null,
+                aiProvider: "local",
                 removeBgApiKey: body.removeBgApiKey || null,
                 prefix: body.prefix || "#",
                 antiSpamEnabled: body.antiSpamEnabled ?? false,
@@ -176,6 +194,10 @@ export async function POST(
                 antiLinkLimit: body.antiLinkLimit ?? 3,
                 antiLinkScope: body.antiLinkScope || "ALL",
                 antiLinkGroups: body.antiLinkGroups || [],
+                enableAiChat: body.enableAiChat ?? false,
+                aiChatAllowedJids: body.aiChatAllowedJids || [],
+                aiChatEndpoint: body.aiChatEndpoint || "http://127.0.0.1:8080/v1/chat/completions",
+                aiChatProvider: "local",
             },
             update: updateFields,
         });

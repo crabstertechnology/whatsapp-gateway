@@ -61,7 +61,7 @@ export async function POST(
         if (capGate.error) return capGate.error;
 
         const body = await request.json();
-        const { jid, content, sendAt, mediaUrl, mediaType } = body;
+        const { jid, recipientName, content, sendAt, mediaUrl, mediaType, repeatType, repeatInterval, repeatCount, repeatUntil } = body;
 
         if (!jid || !content || !sendAt) {
             return NextResponse.json({ status: false, message: "Missing required fields", error: "Missing required fields" }, { status: 400 });
@@ -84,20 +84,25 @@ export async function POST(
         // Fetch system timezone
         // @ts-ignore
         const systemConfig = await prisma.systemConfig.findUnique({ where: { id: "default" }, select: { timezone: true } });
-        const timezone = systemConfig?.timezone || "Asia/Jakarta";
+        const timezone = systemConfig?.timezone || "Asia/Kolkata";
 
         console.log(`[Scheduler:POST] Received sendAt: ${sendAt}, using timezone: ${timezone}`);
         const utcDate = moment.tz(sendAt, timezone).toDate();
-        console.log(`[Scheduler:POST] Resolved UTC Date: ${utcDate.toISOString()}`);
+        const untilDate = repeatUntil ? moment.tz(repeatUntil, timezone).toDate() : null;
 
         const scheduled = await prisma.scheduledMessage.create({
             data: {
                 sessionId: session.id,
                 jid,
+                recipientName: recipientName || null,
                 content,
                 mediaUrl,
                 mediaType,
                 sendAt: utcDate,
+                repeatType: repeatType || "NONE",
+                repeatInterval: repeatInterval ? parseInt(repeatInterval, 10) : 1,
+                repeatCount: repeatCount ? parseInt(repeatCount, 10) : null,
+                repeatUntil: untilDate,
                 status: "PENDING"
             }
         });

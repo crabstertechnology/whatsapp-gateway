@@ -9,7 +9,6 @@ import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { logger } from "@/lib/logger";
-import { askAI, summarizeUrl } from "@/lib/ai-service";
 
 const execAsync = promisify(exec);
 
@@ -29,9 +28,6 @@ const DEFAULT_CONFIG = {
     maxStickerDuration: 10,
     enablePing: true,
     enableUptime: true,
-    enableAi: true,
-    aiApiKey: null as string | null,
-    aiProvider: "gemini",
     botName: "WA-AKG Bot",
     prefix: "#",
     removeBgApiKey: null as string | null
@@ -114,22 +110,22 @@ async function requireGroupAdmin(
     msg: WAMessage,
     fromMe: boolean
 ): Promise<{ ok: boolean; metadata?: any; error?: string }> {
-    if (!isGroupJid(remoteJid)) return { ok: false, error: "❌ Perintah ini hanya bisa dipakai di dalam grup." };
+    if (!isGroupJid(remoteJid)) return { ok: false, error: "❌ This command can only be used in a group." };
 
     let metadata: any;
     try {
         metadata = await getGroupMetadataCached(sock, remoteJid);
     } catch {
-        return { ok: false, error: "❌ Gagal ambil data grup." };
+        return { ok: false, error: "❌ Failed to fetch group metadata." };
     }
 
     const participants = metadata.participants || [];
 
-    // Bot bisa diidentifikasi lewat nomor (id) ATAU LID — cek keduanya.
+    // Bot can be identified by number (id) OR LID - check both.
     const botCandidates = [sock.user?.id, (sock.user as any)?.lid];
     const botIsAdmin = matchesAdmin(participants, botCandidates);
 
-    // Sender juga bisa datang sebagai nomor atau LID tergantung versi/grup.
+    // Sender can also arrive as number or LID depending on version/group.
     const k: any = msg.key;
     const ctx: any = msg.message?.extendedTextMessage?.contextInfo;
     const senderCandidates = [
@@ -141,8 +137,8 @@ async function requireGroupAdmin(
     ];
     const senderIsAdmin = fromMe || matchesAdmin(participants, senderCandidates);
 
-    if (!senderIsAdmin) return { ok: false, error: "❌ Khusus admin grup." };
-    if (!botIsAdmin) return { ok: false, error: "❌ Jadikan bot sebagai admin grup dulu." };
+    if (!senderIsAdmin) return { ok: false, error: "❌ Only group admins can use this command." };
+    if (!botIsAdmin) return { ok: false, error: "❌ Please promote the bot to group admin first." };
 
     return { ok: true, metadata };
 }
@@ -264,81 +260,6 @@ export async function handleBotCommand(
             case "ping": {
                 if (!config.enablePing) return;
                 await sock.sendMessage(remoteJid, { text: "Pong! 🏓" }, { quoted: msg });
-                break;
-            }
-
-            case "ask":
-            case "ai": {
-                if ((config as any).enableAi === false) return;
-
-                const quotedMsg = messageContent?.extendedTextMessage?.contextInfo?.quotedMessage;
-                const quotedText = quotedMsg?.conversation || quotedMsg?.extendedTextMessage?.text || "";
-                
-                const userQuery = args.join(" ").trim();
-                let fullPrompt = "";
-
-                if (userQuery && quotedText) {
-                    fullPrompt = `Context from replied message:\n"${quotedText}"\n\nUser question/instruction: ${userQuery}`;
-                } else if (userQuery) {
-                    fullPrompt = userQuery;
-                } else if (quotedText) {
-                    fullPrompt = `Please explain, answer, or assist with this message:\n"${quotedText}"`;
-                }
-
-                if (!fullPrompt) {
-                    await sock.sendMessage(remoteJid, {
-                        text: `❓ *Usage:*\n• \`${prefix}ask <your question>\` (e.g. \`${prefix}ask write a leave email\`)\n• Or reply to any message with \`${prefix}ask <instruction>\` (e.g. translate to French, explain)`
-                    }, { quoted: msg });
-                    return;
-                }
-
-                // Send thinking reaction
-                await sock.sendMessage(remoteJid, { react: { text: "⏳", key: msg.key } }).catch(() => {});
-
-                const answer = await askAI(fullPrompt, {
-                    apiKey: (config as any).aiApiKey,
-                    provider: (config as any).aiProvider
-                });
-
-                await sock.sendMessage(remoteJid, {
-                    text: `🤖 *AI Assistant:*\n\n${answer}`
-                }, { quoted: msg });
-
-                await sock.sendMessage(remoteJid, { react: { text: "💡", key: msg.key } }).catch(() => {});
-                break;
-            }
-
-            case "summary":
-            case "summarize": {
-                if ((config as any).enableAi === false) return;
-
-                const quotedMsg = messageContent?.extendedTextMessage?.contextInfo?.quotedMessage;
-                const quotedText = quotedMsg?.conversation || quotedMsg?.extendedTextMessage?.text || "";
-                const combinedText = `${args.join(" ")} ${quotedText}`.trim();
-
-                const urlMatch = combinedText.match(/https?:\/\/[^\s]+/i);
-                if (!urlMatch) {
-                    await sock.sendMessage(remoteJid, {
-                        text: `❓ *Usage:*\n• \`${prefix}summary <article_link>\`\n• Or reply to any link with \`${prefix}summary\``
-                    }, { quoted: msg });
-                    return;
-                }
-
-                const targetUrl = urlMatch[0];
-
-                // Send thinking reaction
-                await sock.sendMessage(remoteJid, { react: { text: "⏳", key: msg.key } }).catch(() => {});
-
-                const summaryResult = await summarizeUrl(targetUrl, {
-                    apiKey: (config as any).aiApiKey,
-                    provider: (config as any).aiProvider
-                });
-
-                await sock.sendMessage(remoteJid, {
-                    text: summaryResult
-                }, { quoted: msg });
-
-                await sock.sendMessage(remoteJid, { react: { text: "📰", key: msg.key } }).catch(() => {});
                 break;
             }
 
@@ -539,8 +460,6 @@ export async function handleBotCommand(
 
 📌 *Commands:*
 • *${prefix}news*: Daily top India & Global news digest (No AI)
-• *${prefix}ask* / *${prefix}ai* <tanya>: Tanya AI / terjemah / buat teks
-• *${prefix}summary* <link>: Rangkum artikel / berita dari link
 • *${prefix}sticker* / *${prefix}s*: Convert Image/Video to Sticker
   - Supports Images, GIFs, and Videos (max ${(config as any).maxStickerDuration || 10}s)
   - Use *${prefix}sticker nobg* to remove background (Images only)
@@ -602,14 +521,14 @@ _Made with ❤️_
                 }
                 const targets = resolveTargetJids(msg, args);
                 if (!targets.length) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Tag/reply orangnya, atau ketik ${prefix}kick <nomor>.` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Tag/reply to a user, or type ${prefix}kick <number>.` }, { quoted: msg });
                     return;
                 }
                 try {
                     await sock.groupParticipantsUpdate(remoteJid, targets, "remove");
-                    await sock.sendMessage(remoteJid, { text: `✅ Berhasil kick ${targets.length} anggota.`, mentions: targets }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `✅ Successfully removed ${targets.length} members.`, mentions: targets }, { quoted: msg });
                 } catch (e) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Gagal kick: ${(e as any)?.message || e}` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Failed to remove: ${(e as any)?.message || e}` }, { quoted: msg });
                 }
                 break;
             }
@@ -623,19 +542,19 @@ _Made with ❤️_
                 }
                 const targets = resolveTargetJids(msg, args);
                 if (!targets.length) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Ketik ${prefix}add <nomor> (pakai kode negara, mis. 628xxxx).` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Type ${prefix}add <number> (include country code, e.g. 91xxxxxxxxxx).` }, { quoted: msg });
                     return;
                 }
                 try {
                     const res: any = await sock.groupParticipantsUpdate(remoteJid, targets, "add");
                     const failed = Array.isArray(res) ? res.filter((r: any) => r.status !== "200") : [];
                     if (failed.length) {
-                        await sock.sendMessage(remoteJid, { text: `⚠️ Sebagian gagal ditambah (mungkin privasi/sudah keluar). Berhasil: ${targets.length - failed.length}/${targets.length}.` }, { quoted: msg });
+                        await sock.sendMessage(remoteJid, { text: `⚠️ Some users could not be added (privacy settings or recently left). Succeeded: ${targets.length - failed.length}/${targets.length}.` }, { quoted: msg });
                     } else {
-                        await sock.sendMessage(remoteJid, { text: `✅ Berhasil menambah ${targets.length} anggota.` }, { quoted: msg });
+                        await sock.sendMessage(remoteJid, { text: `✅ Successfully added ${targets.length} members.` }, { quoted: msg });
                     }
                 } catch (e) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Gagal add: ${(e as any)?.message || e}` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Failed to add: ${(e as any)?.message || e}` }, { quoted: msg });
                 }
                 break;
             }
@@ -650,22 +569,22 @@ _Made with ❤️_
                 }
                 const targets = resolveTargetJids(msg, args);
                 if (!targets.length) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Tag/reply orangnya untuk ${prefix}${cmd}.` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Tag/reply to a user to ${prefix}${cmd}.` }, { quoted: msg });
                     return;
                 }
                 try {
                     await sock.groupParticipantsUpdate(remoteJid, targets, cmd === "promote" ? "promote" : "demote");
                     await sock.sendMessage(remoteJid, {
-                        text: cmd === "promote" ? `✅ Dijadikan admin.` : `✅ Dicopot dari admin.`,
+                        text: cmd === "promote" ? `✅ Promoted to admin.` : `✅ Demoted from admin.`,
                         mentions: targets
                     }, { quoted: msg });
                 } catch (e) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Gagal: ${(e as any)?.message || e}` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Failed: ${(e as any)?.message || e}` }, { quoted: msg });
                 }
                 break;
             }
 
-            // ===== GROUP: OPEN / CLOSE (siapa yang bisa kirim pesan) =====
+            // ===== GROUP: OPEN / CLOSE (who can send messages) =====
             case "open":
             case "close":
             case "mute":
@@ -679,10 +598,10 @@ _Made with ❤️_
                 try {
                     await sock.groupSettingUpdate(remoteJid, lock ? "announcement" : "not_announcement");
                     await sock.sendMessage(remoteJid, {
-                        text: lock ? "🔒 Grup ditutup — hanya admin yang bisa kirim pesan." : "🔓 Grup dibuka — semua anggota bisa kirim pesan."
+                        text: lock ? "🔒 Group closed — only admins can send messages." : "🔓 Group opened — all members can send messages."
                     }, { quoted: msg });
                 } catch (e) {
-                    await sock.sendMessage(remoteJid, { text: `❌ Gagal ubah pengaturan grup: ${(e as any)?.message || e}` }, { quoted: msg });
+                    await sock.sendMessage(remoteJid, { text: `❌ Failed to update group settings: ${(e as any)?.message || e}` }, { quoted: msg });
                 }
                 break;
             }

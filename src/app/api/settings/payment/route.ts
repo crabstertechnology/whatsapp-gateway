@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
         status: true,
-        message: "Pengaturan pembayaran disimpan",
+        message: "Payment settings saved",
         data: {
             klikqrisBaseUrl: cfg.klikqrisBaseUrl,
             klikqrisMerchantId: cfg.klikqrisMerchantId,

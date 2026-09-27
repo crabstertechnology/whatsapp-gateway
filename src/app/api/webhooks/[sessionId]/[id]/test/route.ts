@@ -90,8 +90,8 @@ export async function POST(
             statusText: res.statusText,
             ok: res.ok,
             message: res.ok
-                ? `Berhasil! Server tujuan membalas ${res.status} ${res.statusText}.`
-                : `Server tujuan membalas ${res.status} ${res.statusText}. ${res.status === 404 ? "URL salah / endpoint tidak ada — perbaiki URL-nya." : "Pastikan endpoint menerima POST dan membalas 2xx."}`,
+                ? `Success! Target server responded ${res.status} ${res.statusText}.`
+                : `Target server responded ${res.status} ${res.statusText}. ${res.status === 404 ? "URL incorrect / endpoint not found — please fix the URL." : "Ensure the endpoint accepts POST and returns 2xx."}`,
             responsePreview: snippet,
         });
     } catch (err) {
@@ -101,8 +101,8 @@ export async function POST(
             status: false,
             ok: false,
             message: isTimeout
-                ? "Gagal: URL tidak merespons dalam 10 detik (timeout). Cek apakah server tujuan online."
-                : `Gagal terhubung ke URL: ${msg}. Cek apakah URL benar dan bisa diakses dari internet.`,
+                ? "Failed: URL did not respond within 10 seconds (timeout). Check if target server is online."
+                : `Failed to connect to URL: ${msg}. Check if the URL is correct and reachable.`,
         });
     }
 }

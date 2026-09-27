@@ -16,7 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Save, AlertCircle, Bot, X, Plus, ShieldCheck, Zap, UserCheck, MessageSquarePlus, Sparkles } from "lucide-react";
+import { RefreshCw, Save, AlertCircle, Bot, X, Plus, ShieldCheck, Zap, UserCheck, MessageSquarePlus, Heart, MessageCircle, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { SessionGuard } from "@/components/dashboard/session-guard";
 
@@ -32,9 +32,9 @@ export default function BotSettingsPage() {
         maxStickerDuration: 10,
         enablePing: true,
         enableUptime: true,
-        enableAi: true,
+        enableAi: false,
         aiApiKey: "",
-        aiProvider: "gemini",
+        aiProvider: "local",
         removeBgApiKey: "",
         botMode: "OWNER",
         autoReplyMode: "ALL",
@@ -59,10 +59,18 @@ export default function BotSettingsPage() {
         antiLinkLimit: 3,
         antiLinkScope: "ALL" as "ALL" | "SPECIFIC",
         antiLinkGroups: [] as string[],
+
+        // AI Contact Persona Chat
+        enableAiChat: false,
+        aiChatAllowedJids: [] as string[],
+        aiChatEndpoint: "http://127.0.0.1:8080/v1/chat/completions",
+        aiChatProvider: "local",
     });
     const [botLoading, setBotLoading] = useState(false);
 
     const [newJid, setNewJid] = useState("");
+    const [newAiJid, setNewAiJid] = useState("");
+    const [contactsList, setContactsList] = useState<Array<{ jid: string; name: string }>>([]);
 
     const [privacyConfig, setPrivacyConfig] = useState({
         ghostMode: false,
@@ -98,6 +106,19 @@ export default function BotSettingsPage() {
         if (!sessionId) return;
         fetchGroupsList();
 
+        fetch(`/api/contacts/${sessionId}?limit=all`)
+            .then(res => res.json())
+            .then(responseData => {
+                const list = responseData?.data?.contacts || responseData?.contacts || [];
+                if (Array.isArray(list)) {
+                    setContactsList(list.map((c: any) => ({
+                        jid: c.jid,
+                        name: c.name || c.notify || c.verifiedName || c.jid
+                    })));
+                }
+            })
+            .catch(() => { });
+
         fetch(`/api/sessions/${sessionId}/bot-config`)
             .then(res => { if (!res.ok) throw new Error(); return res.json(); })
             .then(responseData => {
@@ -106,17 +127,34 @@ export default function BotSettingsPage() {
                     setBotConfig(prev => ({
                         ...prev,
                         ...data,
-                        enableAi: data.enableAi !== false,
+                        enabled: data.enabled ?? prev.enabled,
+                        botName: data.botName || prev.botName,
+                        botMode: data.botMode || prev.botMode,
+                        autoReplyMode: data.autoReplyMode || prev.autoReplyMode,
+                        enableAi: data.enableAi === true,
                         aiApiKey: data.aiApiKey || "",
-                        aiProvider: data.aiProvider || "gemini",
+                        aiProvider: data.aiProvider || "local",
                         removeBgApiKey: data.removeBgApiKey || "",
                         prefix: data.prefix || "#",
                         welcomeMessage: data.welcomeMessage || "",
-                        botAllowedJids: data.botAllowedJids || [],
-                        botBlockedJids: data.botBlockedJids || [],
-                        autoReplyAllowedJids: data.autoReplyAllowedJids || [],
-                        autoReplyBlockedJids: data.autoReplyBlockedJids || [],
-                        antiLinkGroups: data.antiLinkGroups || [],
+                        botAllowedJids: Array.isArray(data.botAllowedJids) ? data.botAllowedJids : [],
+                        botBlockedJids: Array.isArray(data.botBlockedJids) ? data.botBlockedJids : [],
+                        autoReplyAllowedJids: Array.isArray(data.autoReplyAllowedJids) ? data.autoReplyAllowedJids : [],
+                        autoReplyBlockedJids: Array.isArray(data.autoReplyBlockedJids) ? data.autoReplyBlockedJids : [],
+                        antiLinkMode: data.antiLinkMode || "OFF",
+                        antiLinkAction: data.antiLinkAction || "DELETE",
+                        antiLinkScope: data.antiLinkScope || "ALL",
+                        antiLinkLimit: typeof data.antiLinkLimit === 'number' ? data.antiLinkLimit : 3,
+                        antiLinkGroups: Array.isArray(data.antiLinkGroups) ? data.antiLinkGroups : [],
+                        enableAiChat: data.enableAiChat === true,
+                        aiChatAllowedJids: Array.isArray(data.aiChatAllowedJids) ? data.aiChatAllowedJids : [],
+                        aiChatEndpoint: data.aiChatEndpoint || "http://127.0.0.1:8080/v1/chat/completions",
+                        aiChatProvider: data.aiChatProvider || "local",
+                        spamLimit: typeof data.spamLimit === 'number' ? data.spamLimit : 5,
+                        spamInterval: typeof data.spamInterval === 'number' ? data.spamInterval : 10,
+                        spamDelayMin: typeof data.spamDelayMin === 'number' ? data.spamDelayMin : 1000,
+                        spamDelayMax: typeof data.spamDelayMax === 'number' ? data.spamDelayMax : 3000,
+                        maxStickerDuration: typeof data.maxStickerDuration === 'number' ? data.maxStickerDuration : 10,
                     }));
                 }
             })
@@ -195,10 +233,11 @@ export default function BotSettingsPage() {
         let formatted = newJid.trim();
         if (!formatted.includes('@')) formatted += '@s.whatsapp.net';
 
-        if (!botConfig[listName].includes(formatted)) {
+        const list = Array.isArray(botConfig[listName]) ? botConfig[listName] : [];
+        if (!list.includes(formatted)) {
             setBotConfig(prev => ({
                 ...prev,
-                [listName]: [...prev[listName], formatted]
+                [listName]: [...(Array.isArray(prev[listName]) ? prev[listName] : []), formatted]
             }));
         }
         setNewJid("");
@@ -207,7 +246,30 @@ export default function BotSettingsPage() {
     const removeJid = (listName: 'botAllowedJids' | 'botBlockedJids' | 'autoReplyAllowedJids' | 'autoReplyBlockedJids', jid: string) => {
         setBotConfig(prev => ({
             ...prev,
-            [listName]: prev[listName].filter(item => item !== jid)
+            [listName]: (Array.isArray(prev[listName]) ? prev[listName] : []).filter(item => item !== jid)
+        }));
+    };
+
+    const addAiJid = (jidToAdd?: string) => {
+        const val = jidToAdd || newAiJid;
+        if (!val || !val.trim()) return;
+        let formatted = val.trim();
+        if (!formatted.includes('@')) formatted += '@s.whatsapp.net';
+
+        const list = Array.isArray(botConfig.aiChatAllowedJids) ? botConfig.aiChatAllowedJids : [];
+        if (!list.includes(formatted)) {
+            setBotConfig(prev => ({
+                ...prev,
+                aiChatAllowedJids: [...(Array.isArray(prev.aiChatAllowedJids) ? prev.aiChatAllowedJids : []), formatted]
+            }));
+        }
+        if (!jidToAdd) setNewAiJid("");
+    };
+
+    const removeAiJid = (jid: string) => {
+        setBotConfig(prev => ({
+            ...prev,
+            aiChatAllowedJids: (Array.isArray(prev.aiChatAllowedJids) ? prev.aiChatAllowedJids : []).filter(item => item !== jid)
         }));
     };
 
@@ -252,7 +314,7 @@ export default function BotSettingsPage() {
                                 <Label>Bot Name</Label>
                                 <Input
                                     placeholder="WA-AKG Bot"
-                                    value={botConfig.botName}
+                                    value={botConfig.botName || ""}
                                     onChange={(e) => setBotConfig(prev => ({ ...prev, botName: e.target.value }))}
                                 />
                                 <p className="text-xs text-muted-foreground">The display name used by the bot in automated responses.</p>
@@ -265,7 +327,7 @@ export default function BotSettingsPage() {
                                         className="max-w-[100px]"
                                         placeholder="#"
                                         maxLength={3}
-                                        value={botConfig.prefix}
+                                        value={botConfig.prefix || "#"}
                                         onChange={(e) => setBotConfig(prev => ({ ...prev, prefix: e.target.value }))}
                                     />
                                     <p className="text-xs text-muted-foreground">The prefix character for bot commands.</p>
@@ -273,7 +335,7 @@ export default function BotSettingsPage() {
                                 <div className="grid gap-2">
                                     <Label>Bot Interaction Mode</Label>
                                     <Select
-                                        value={botConfig.botMode}
+                                        value={botConfig.botMode || "OWNER"}
                                         onValueChange={(v: any) => setBotConfig(prev => ({ ...prev, botMode: v }))}
                                     >
                                         <SelectTrigger>
@@ -308,7 +370,7 @@ export default function BotSettingsPage() {
                                         </Button>
                                     </div>
                                     <div className="flex flex-wrap gap-2 mt-2">
-                                        {(botConfig.botMode === 'SPECIFIC' ? botConfig.botAllowedJids : botConfig.botBlockedJids).map(jid => (
+                                        {(botConfig.botMode === 'SPECIFIC' ? (botConfig.botAllowedJids || []) : (botConfig.botBlockedJids || [])).map(jid => (
                                             <div key={jid} className="flex items-center gap-1.5 bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-xs font-medium">
                                                 {jid}
                                                 <button onClick={() => removeJid(botConfig.botMode === 'SPECIFIC' ? 'botAllowedJids' : 'botBlockedJids', jid)} className="text-muted-foreground hover:text-destructive transition-colors">
@@ -316,7 +378,7 @@ export default function BotSettingsPage() {
                                                 </button>
                                             </div>
                                         ))}
-                                        {(botConfig.botMode === 'SPECIFIC' ? botConfig.botAllowedJids : botConfig.botBlockedJids).length === 0 && (
+                                        {(botConfig.botMode === 'SPECIFIC' ? (botConfig.botAllowedJids || []) : (botConfig.botBlockedJids || [])).length === 0 && (
                                             <p className="text-xs text-muted-foreground italic">No numbers added yet.</p>
                                         )}
                                     </div>
@@ -432,7 +494,7 @@ export default function BotSettingsPage() {
                             <div className="grid gap-2 border-t border-border/50 pt-4">
                                 <Label>Max Sticker Video Duration: <strong>{botConfig.maxStickerDuration}s</strong></Label>
                                 <Slider
-                                    value={[botConfig.maxStickerDuration]}
+                                    value={[botConfig.maxStickerDuration || 10]}
                                     onValueChange={([v]) => setBotConfig(prev => ({ ...prev, maxStickerDuration: v }))}
                                     min={3}
                                     max={30}
@@ -461,93 +523,164 @@ export default function BotSettingsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* AI Assistant & Link Summarizer */}
-                    <Card>
+                    {/* Sasi AI Contact Auto-Chat */}
+                    <Card className="border-pink-500/20 bg-gradient-to-br from-card via-card to-pink-500/5">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-indigo-500" />
-                                Pocket AI Assistant & Link Summarizer
+                                <Heart className="h-5 w-5 text-pink-500 fill-pink-500/20" />
+                                AI Contact Auto-Chat (Sasi AI Persona)
                             </CardTitle>
                             <CardDescription>
-                                Power <code>{botConfig.prefix}ask</code> / <code>{botConfig.prefix}ai</code> for intelligent Q&A and <code>{botConfig.prefix}summary</code> to read articles in seconds directly from WhatsApp.
+                                Automatically chat with selected contacts using Sasi's natural, casual English personality. Responds 100% like a real human without bot prefixes, simulates natural typing pauses, and stops talking silently on closing remarks (ok, mm, bye).
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <div className="flex items-center justify-between space-x-2 border p-3 rounded-lg">
-                                <Label htmlFor="enable-ai" className="flex flex-col space-y-1 cursor-pointer">
-                                    <span className="font-medium">Enable AI Features</span>
-                                    <span className="font-normal text-xs text-muted-foreground">Respond to {botConfig.prefix}ask and {botConfig.prefix}summary commands</span>
+                            <div className="flex items-center justify-between space-x-2 border p-3 rounded-lg bg-pink-500/5 border-pink-500/20">
+                                <Label htmlFor="enable-ai-chat" className="flex flex-col space-y-1 cursor-pointer">
+                                    <span className="font-medium text-pink-600 dark:text-pink-400">Enable AI Auto-Chat for Selected Contacts</span>
+                                    <span className="font-normal text-xs text-muted-foreground">
+                                        Only messages from contacts added to the Allowed Contacts list below will be answered by the AI model.
+                                    </span>
                                 </Label>
                                 <Switch
-                                    id="enable-ai"
-                                    checked={botConfig.enableAi}
-                                    onCheckedChange={(c) => setBotConfig((prev) => ({ ...prev, enableAi: c }))}
+                                    id="enable-ai-chat"
+                                    checked={botConfig.enableAiChat}
+                                    onCheckedChange={(c) => setBotConfig((prev) => ({ ...prev, enableAiChat: c }))}
                                 />
                             </div>
 
-                            {botConfig.enableAi && (
-                                <div className="space-y-4 pt-2 border-t border-border/50 animate-in fade-in duration-200">
+                            {botConfig.enableAiChat && (
+                                <div className="space-y-5 pt-2 border-t border-border/50 animate-in fade-in duration-200">
                                     <div className="grid sm:grid-cols-2 gap-4">
                                         <div className="grid gap-2">
-                                            <Label>AI Provider</Label>
-                                            <Select
-                                                value={botConfig.aiProvider}
-                                                onValueChange={(v: string) => setBotConfig((prev) => ({ ...prev, aiProvider: v }))}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="gemini">Google Gemini (Recommended / Free)</SelectItem>
-                                                    <SelectItem value="openai">OpenAI (ChatGPT - gpt-4o-mini)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <p className="text-xs text-muted-foreground">
-                                                {botConfig.aiProvider === "gemini" 
-                                                    ? "Fast & generous free tier via Google AI Studio." 
-                                                    : "Requires paid OpenAI API key."}
-                                            </p>
+                                            <Label className="flex items-center gap-1.5">
+                                                <span>AI Engine</span>
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-emerald-600 bg-emerald-500/10 border border-emerald-500/30">Edge Device Only</span>
+                                            </Label>
+                                            <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-xs space-y-1">
+                                                <div className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                                                    <Cpu className="h-4 w-4" /> On-Device Native Gemma-3 1B
+                                                </div>
+                                                <p className="text-muted-foreground">
+                                                    Runs 100% directly on your mobile device via embedded llama-server (port 8080). Completely offline, private, and self-contained — no PC server or cloud fallback needed!
+                                                </p>
+                                            </div>
                                         </div>
 
                                         <div className="grid gap-2">
-                                            <Label className="flex items-center justify-between">
-                                                <span>API Key</span>
-                                                {botConfig.aiProvider === "gemini" && (
-                                                    <a
-                                                        href="https://aistudio.google.com/app/apikey"
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="text-[11px] text-primary hover:underline"
-                                                    >
-                                                        Get Free Gemini Key ↗
-                                                    </a>
-                                                )}
-                                            </Label>
+                                            <Label>Edge llama-server Endpoint</Label>
                                             <Input
-                                                type="password"
-                                                placeholder={botConfig.aiProvider === "gemini" ? "AIzaSy..." : "sk-..."}
-                                                value={botConfig.aiApiKey}
-                                                onChange={(e) => setBotConfig((prev) => ({ ...prev, aiApiKey: e.target.value }))}
+                                                placeholder="http://127.0.0.1:8080/v1/chat/completions"
+                                                value={botConfig.aiChatEndpoint || "http://127.0.0.1:8080/v1/chat/completions"}
+                                                onChange={(e) => setBotConfig((prev) => ({ ...prev, aiChatEndpoint: e.target.value }))}
                                             />
                                             <p className="text-xs text-muted-foreground">
-                                                Leave empty to use <code>GEMINI_API_KEY</code> / <code>OPENAI_API_KEY</code> from <code>.env</code>.
+                                                Local mobile endpoint: <code>http://127.0.0.1:8080/v1/chat/completions</code>.
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3 text-xs space-y-1">
-                                        <p className="font-semibold text-indigo-700 dark:text-indigo-300">💡 Available Commands on WhatsApp:</p>
-                                        <p className="text-muted-foreground">• <code>{botConfig.prefix}ask &lt;question&gt;</code> — Ask any question, translation, or text drafting.</p>
-                                        <p className="text-muted-foreground">• Reply to any message with <code>{botConfig.prefix}ask translate to Tamil</code> to transform it.</p>
-                                        <p className="text-muted-foreground">• <code>{botConfig.prefix}summary &lt;url&gt;</code> — Generates a 3-5 bullet point summary of any web link.</p>
+                                    {/* Selected Contacts Section */}
+                                    <div className="space-y-3 pt-2 border-t border-border/50">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <Label className="font-semibold text-sm">Allowed Contacts for AI Chat</Label>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Only these specific WhatsApp chats will be answered by Sasi's AI model.
+                                                </p>
+                                            </div>
+                                            {!(botConfig.aiChatAllowedJids || []).includes("919629213731@s.whatsapp.net") && (
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="text-xs h-7 gap-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-600 dark:text-pink-300 border border-pink-500/30"
+                                                    onClick={() => addAiJid("919629213731@s.whatsapp.net")}
+                                                >
+                                                    <Plus className="h-3 w-3" /> Quick Add Janu (Kanojo)
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        {/* Contact selection & custom input */}
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            {contactsList.length > 0 && (
+                                                <div className="w-full sm:w-1/2">
+                                                    <Select onValueChange={(val) => { if (val) addAiJid(val); }}>
+                                                        <SelectTrigger className="text-xs">
+                                                            <SelectValue placeholder="Select from contacts..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="max-h-56">
+                                                            {contactsList.map(c => (
+                                                                <SelectItem key={c.jid} value={c.jid} className="text-xs">
+                                                                    {c.name} ({c.jid.split('@')[0]})
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+                                            <div className="flex gap-2 flex-1">
+                                                <Input
+                                                    placeholder="Enter phone number or JID (e.g. 919629213731)"
+                                                    value={newAiJid}
+                                                    onChange={(e) => setNewAiJid(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && addAiJid()}
+                                                    className="text-xs"
+                                                />
+                                                <Button variant="outline" size="sm" onClick={() => addAiJid()}>
+                                                    <Plus className="h-4 w-4 mr-1" /> Add
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* List of active contacts */}
+                                        <div className="flex flex-wrap gap-2 pt-2">
+                                            {(botConfig.aiChatAllowedJids || []).map(jid => {
+                                                const contact = contactsList.find(c => c.jid === jid || c.jid.split('@')[0] === jid.split('@')[0]);
+                                                const label = contact?.name ? `${contact.name} (${jid.split('@')[0]})` : jid;
+                                                return (
+                                                    <span
+                                                        key={jid}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-pink-500/10 text-pink-700 dark:text-pink-300 border border-pink-500/30"
+                                                    >
+                                                        <Heart className="h-3 w-3 fill-pink-500 text-pink-500" />
+                                                        {label}
+                                                        <button
+                                                            onClick={() => removeAiJid(jid)}
+                                                            className="ml-1 hover:text-destructive transition-colors"
+                                                            title="Remove contact"
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                            {(botConfig.aiChatAllowedJids || []).length === 0 && (
+                                                <p className="text-xs text-muted-foreground italic">
+                                                    No contacts added yet. Add a contact above to enable AI auto-chat.
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Behaviour Rules Highlight */}
+                                        <div className="rounded-lg border border-pink-500/20 bg-pink-500/5 p-3 text-xs space-y-1.5">
+                                            <p className="font-semibold text-pink-700 dark:text-pink-300">✨ Sasi Personality Active Safeguards:</p>
+                                            <p className="text-muted-foreground">• <strong>Pure English:</strong> Talks naturally in casual English without any Tamil words.</p>
+                                            <p className="text-muted-foreground">• <strong>Human Tone:</strong> Short, punchy messages (1-2 lines), no bot prefixes (like # or [AI]), natural typing delays.</p>
+                                            <p className="text-muted-foreground">• <strong>Silent Ending:</strong> Gracefully goes silent when the other person sends "ok", "mm", "bye", "good night", etc.</p>
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
                             <div className="pt-2">
-                                <Button className="w-full sm:w-auto" onClick={handleSaveBot} disabled={botLoading || !sessionId}>
+                                <Button
+                                    className="w-full sm:w-auto bg-pink-600 hover:bg-pink-700 text-white"
+                                    onClick={handleSaveBot}
+                                    disabled={botLoading || !sessionId}
+                                >
                                     {botLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                    Save AI Settings
+                                    Save AI Contact Chat Settings
                                 </Button>
                             </div>
                         </CardContent>
@@ -586,9 +719,9 @@ export default function BotSettingsPage() {
                                             Once the time window resets (old messages expire), messages go back to normal speed.
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            <strong>Example:</strong> With threshold = <strong>{botConfig.spamLimit}</strong> and window = <strong>{botConfig.spamInterval}s</strong> →
-                                            the first {botConfig.spamLimit} messages within {botConfig.spamInterval} seconds are sent instantly.
-                                            Message #{botConfig.spamLimit + 1} and beyond will be delayed by {botConfig.spamDelayMin}ms–{botConfig.spamDelayMax}ms each.
+                                            <strong>Example:</strong> With threshold = <strong>{botConfig.spamLimit ?? 5}</strong> and window = <strong>{botConfig.spamInterval ?? 10}s</strong> →
+                                            the first {botConfig.spamLimit ?? 5} messages within {botConfig.spamInterval ?? 10} seconds are sent instantly.
+                                            Message #{(botConfig.spamLimit ?? 5) + 1} and beyond will be delayed by {botConfig.spamDelayMin ?? 1000}ms–{botConfig.spamDelayMax ?? 3000}ms each.
                                         </p>
                                     </div>
 
@@ -597,7 +730,7 @@ export default function BotSettingsPage() {
                                             <Label className="font-semibold">Messages Threshold</Label>
                                             <Input
                                                 type="number"
-                                                value={botConfig.spamLimit}
+                                                value={botConfig.spamLimit ?? 5}
                                                 onChange={e => setBotConfig(prev => ({ ...prev, spamLimit: parseInt(e.target.value) || 1 }))}
                                                 min={1}
                                             />
@@ -610,7 +743,7 @@ export default function BotSettingsPage() {
                                             <Label className="font-semibold">Time Window (Seconds)</Label>
                                             <Input
                                                 type="number"
-                                                value={botConfig.spamInterval}
+                                                value={botConfig.spamInterval ?? 10}
                                                 onChange={e => setBotConfig(prev => ({ ...prev, spamInterval: parseInt(e.target.value) || 1 }))}
                                                 min={1}
                                             />
@@ -626,7 +759,7 @@ export default function BotSettingsPage() {
                                             <Label className="font-semibold">Min Delay (ms)</Label>
                                             <Input
                                                 type="number"
-                                                value={botConfig.spamDelayMin}
+                                                value={botConfig.spamDelayMin ?? 1000}
                                                 onChange={e => setBotConfig(prev => ({ ...prev, spamDelayMin: parseInt(e.target.value) || 0 }))}
                                                 min={0}
                                                 step={100}
@@ -639,7 +772,7 @@ export default function BotSettingsPage() {
                                             <Label className="font-semibold">Max Delay (ms)</Label>
                                             <Input
                                                 type="number"
-                                                value={botConfig.spamDelayMax}
+                                                value={botConfig.spamDelayMax ?? 3000}
                                                 onChange={e => setBotConfig(prev => ({ ...prev, spamDelayMax: parseInt(e.target.value) || 0 }))}
                                                 min={0}
                                                 step={100}
@@ -727,7 +860,7 @@ export default function BotSettingsPage() {
                                         type="number"
                                         min={1}
                                         max={10}
-                                        value={botConfig.antiLinkLimit}
+                                        value={botConfig.antiLinkLimit ?? 3}
                                         onChange={(e) =>
                                             setBotConfig((p) => ({
                                                 ...p,
@@ -766,7 +899,7 @@ export default function BotSettingsPage() {
                             {botConfig.antiLinkMode !== "OFF" && botConfig.antiLinkScope === "SPECIFIC" && (
                                 <div className="grid gap-2">
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <Label>Active Groups ({botConfig.antiLinkGroups.length} selected)</Label>
+                                        <Label>Active Groups ({(botConfig.antiLinkGroups || []).length} selected)</Label>
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -795,7 +928,7 @@ export default function BotSettingsPage() {
                                                     (g.subject || g.jid).toLowerCase().includes(groupSearch.toLowerCase())
                                                 )
                                                 .map((g) => {
-                                                    const checked = botConfig.antiLinkGroups.includes(g.jid);
+                                                    const checked = (botConfig.antiLinkGroups || []).includes(g.jid);
                                                     return (
                                                         <label
                                                             key={g.jid}
@@ -808,8 +941,8 @@ export default function BotSettingsPage() {
                                                                     setBotConfig((p) => ({
                                                                         ...p,
                                                                         antiLinkGroups: e.target.checked
-                                                                            ? [...p.antiLinkGroups, g.jid]
-                                                                            : p.antiLinkGroups.filter((x) => x !== g.jid),
+                                                                            ? [...(Array.isArray(p.antiLinkGroups) ? p.antiLinkGroups : []), g.jid]
+                                                                            : (Array.isArray(p.antiLinkGroups) ? p.antiLinkGroups : []).filter((x) => x !== g.jid),
                                                                     }));
                                                                 }}
                                                                 className="shrink-0"

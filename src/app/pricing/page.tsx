@@ -4,11 +4,10 @@ import { LandingNav } from "@/components/landing/landing-nav";
 import { PricingCards } from "@/components/landing/pricing";
 
 export const metadata = {
-    title: "Pricing | RifalosID WhatsApp Gateway",
-    description: "Pilih plan yang sesuai kebutuhanmu. Mulai gratis, bayar via QRIS."
+    title: "Pricing | WhatsApp Gateway",
+    description: "Choose the plan that suits your needs."
 };
 
-// Render dinamis supaya perubahan plan/pricing dari SUPERADMIN langsung tampil.
 export const dynamic = "force-dynamic";
 
 export default function PricingPage() {
@@ -20,20 +19,19 @@ export default function PricingPage() {
                 <section className="container px-4 md:px-6">
                     <div className="text-center mb-16 max-w-2xl mx-auto">
                         <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl text-foreground mb-4">
-                            Pilih Plan Kamu
+                            Choose Your Plan
                         </h1>
                         <p className="text-muted-foreground text-lg">
-                            Mulai gratis dengan 1.000 request/bulan. Upgrade kapan saja, bayar
-                            instan pakai QRIS (KlikQRIS).
+                            Flexible plans with full multi-device and API automation capabilities.
                         </p>
                     </div>
 
                     <PricingCards ctaHref="/dashboard/billing" />
 
                     <p className="text-center text-sm text-muted-foreground mt-10">
-                        Butuh kuota lebih besar atau kebutuhan khusus?{" "}
+                        Need larger quotas or custom requirements?{" "}
                         <Link href="/docs" className="text-primary hover:underline">
-                            Hubungi kami
+                            Contact us
                         </Link>
                         .
                     </p>
@@ -47,11 +45,11 @@ export default function PricingPage() {
                             <Bot className="h-5 w-5 text-primary" />
                         </div>
                         <span className="font-bold text-foreground" translate="no">
-                            RifalosID
+                            WhatsApp Gateway
                         </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        © {new Date().getFullYear()} RifalosID
+                        © {new Date().getFullYear()} WhatsApp Gateway
                     </p>
                 </div>
             </footer>

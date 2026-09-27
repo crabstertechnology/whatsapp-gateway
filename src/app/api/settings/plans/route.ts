@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const all = await getMergedPlans();
     return NextResponse.json({
         status: true,
-        message: "Konfigurasi plan disimpan",
+        message: "Plan configuration saved",
         data: PLAN_ORDER.map((id) => all[id]),
         saved,
     });
