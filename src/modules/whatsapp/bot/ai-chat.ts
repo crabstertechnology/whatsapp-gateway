@@ -111,73 +111,24 @@ export function getTimeContext(): TimeContext {
 }
 
 /**
- * Builds dynamic system prompt for Sasi with time awareness and mood handling.
+ * Static cache-friendly base prompt to guarantee llama-server KV cache hits
+ */
+export const STATIC_SASI_SYSTEM_PROMPT = `You are Sasi (21), texting on WhatsApp with your girlfriend Janu (20).
+You are an ECE college student running your startup; Janu is an IT college student.
+You both are deeply in love.
+RULES:
+1. Always reply directly and relevantly to what Janu just texted in natural, casual English.
+2. Keep it short: 1 WhatsApp sentence (under 15 words).
+3. Use cute pet names naturally: Janu, chlo, thango, baby.
+4. Be funny, teasing comedy, witty, and caring. Only be flirty/spicy if Janu is flirty.
+5. NEVER ask her name or age, and never say you don't know her name.
+6. Output ONLY Sasi's text message.`;
+
+/**
+ * Builds system prompt for Sasi. Uses static cache-friendly base to prevent llama-server KV invalidation.
  */
 export function buildSasiPrompt(userText: string, timeCtx: TimeContext): string {
-    const norm = userText.toLowerCase();
-
-    const isFlirtyOrHorny = [
-        'thinking about you', 'thinking bout you', 'in bed', 'lonely', 'kiss', 'hug',
-        'cuddle', 'wearing', 'naughty', 'hot', 'sexy', 'horny', 'craving', 'touch',
-        'lips', 'boobs', 'cuddles', 'romance', 'flirt', 'tease', 'naked', 'stripping',
-        'turn on', 'turned on', 'miss you', 'love you', 'cherry', 'anae',
-        '🍒', '😘', '😏', '💋', '🔥', '👅', '🤤', '🥵'
-    ].some(k => norm.includes(k));
-
-    const isAngryOrSulking = [
-        'tired of hanging out with you', 'tired of you', 'angry', 'hate you',
-        'dont talk to me', "don't talk to me", 'leave me alone', 'leave me',
-        'why are you like this', 'you dont care', "you don't care", 'irritating',
-        'mad at you', 'go away', 'annoying', 'boring'
-    ].some(k => norm.includes(k));
-
-    const isTiredOrStressed = [
-        'tired', 'exhausted', 'headache', 'fever', 'stress', 'stressed', 'pain',
-        'so much work', 'sleepy', 'drained'
-    ].some(k => norm.includes(k));
-
-    const isDinnerOrFood = [
-        'dinner', "what's for dinner", 'what for dinner', 'sapdiya', 'had food',
-        'food', 'lunch', 'breakfast', 'eat'
-    ].some(k => norm.includes(k));
-
-    let moodGuidance = "";
-
-    if (isFlirtyOrHorny) {
-        moodGuidance = `
-[CURRENT MOOD: Janu is being romantic, flirtatious, teasing, or passionate! Match her energy with intense romantic confidence, seductive charm, and playful banter. Flatter her, tease her playfully, make her blush and feel desired ("Thinking about me like what? Tell me naughty girl 😏🔥 You know how crazy you make me", "Wish I was right there with you in bed, holding you tight and kissing your neck 😘❤️", "You look so breathtakingly gorgeous, can't get you out of my head"). Be magnetic, deeply romantic, and charming!]`;
-    } else if (isAngryOrSulking) {
-        moodGuidance = `
-[CURRENT MOOD: Janu is feeling annoyed, sulking, or playfully mad ("tired of hanging out with you"). NEVER say "I know", "Ok", or get defensive. Disarm her completely with sweet, gentle, loving romance ("Aww baby why are you saying that 🥺 You know you can't live without me silly girl ❤️ Come here, give me a hug", "Don't be mad at me chlo... you're my whole world, tell me what happened").]`;
-    } else if (isTiredOrStressed) {
-        moodGuidance = `
-[CURRENT MOOD: Janu is tired or stressed. Be deeply loving, comforting, and affectionate ("Aww my baby had a rough day? Come here and relax, let me take care of you ❤️ Eat dinner properly first").]`;
-    } else if (isDinnerOrFood) {
-        moodGuidance = `
-[CURRENT CONTEXT: Janu is asking about dinner/food. Answer naturally like Sasi ("Mom made dosa and chutney at home! What about you baby, did you eat yet?"). NEVER say "I don't know".]`;
-    }
-
-    return `You are Sasi, a 21-year-old guy texting on WhatsApp with your girlfriend Janu (contact name Kanojo~Anae🍒😘).
-Your name is Sasi. Your girlfriend's name is Janu (also called Kanojo, Jaanu, baby, chlo, pondati).
-You love her with all your heart. You are her real boyfriend, NEVER an AI assistant or bot.
-Never say "I am an assistant" or "How can I help you". You are chatting as Sasi directly to your girlfriend.
-
-Current Time: ${timeCtx.timeStr} (${timeCtx.phase}).
-${timeCtx.guidance}
-${moodGuidance}
-
-TEXTING RULES:
-1. PURE CASUAL ENGLISH: Speak casual English with sweet pet names (Janu, baby, silly girl, chlo).
-2. SHORT & PUNCHY: 1 or 2 short natural WhatsApp sentences (under 20 words). Never write long paragraphs.
-3. BE THE REAL SASI:
-   - When she flirts or gets naughty: Be hot, spicy, teasing, and confident!
-   - When she is mad or says "tired of hanging out with you": Be loving, gentle, and disarming ("Aww baby why are you saying that 🥺 What did I do? You know you love me silly girl ❤️").
-   - When she asks what's for dinner or daily questions: Answer naturally ("Mom made dosa/chapathi! What about you baby?").
-4. STRICT PROHIBITIONS:
-   - NEVER say "I know.", "Ok.", or "I don't know." like a cold robot.
-   - NEVER say "good morning" at night or evening.
-   - NEVER suggest afternoon naps at night.
-5. Output ONLY Sasi's text message.`;
+    return STATIC_SASI_SYSTEM_PROMPT;
 }
 
 /**
@@ -368,6 +319,282 @@ const GOODNIGHT_WORDS = new Set([
 ]);
 
 /**
+ * Fast Natural Intent Matcher for girlfriend core banter.
+ * Ensures instant, 100% human-crafted Tanglish boyfriend replies and eliminates small-model hallucinations.
+ */
+export function getDirectIntentReply(userText: string, timeCtx: TimeContext): string | null {
+    const raw = userText.toLowerCase().trim();
+    const clean = raw.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // 1. Janu asking her own name: "what is my name", "my name", "en peru enna"
+    if (
+        clean === 'my name' ||
+        clean === 'my name da' ||
+        clean.includes('what is my name') ||
+        clean.includes('whats my name') ||
+        clean.includes('what my name') ||
+        clean.includes('tell my name') ||
+        clean.includes('en peru enna') ||
+        clean.includes('en peyar enna')
+    ) {
+        return pickRandom([
+            "What silly question is that? Your name is Janu silly girl! 😂 Did you forget your own name?",
+            "Janu obviously! Did my thango forget her own name? 😜 How could your Sasi ever forget your name?",
+            "Janu of course my sweetie ❤️ How could I ever forget you silly girl? 😂"
+        ]);
+    }
+
+    // 2. Janu stating her name: "my name is janu", "janu"
+    if (clean === 'janu' || clean === 'my name is janu' || clean === 'im janu' || clean === "i'm janu") {
+        return pickRandom([
+            "Yes of course Janu baby ❤️ Who else would I know better than you?",
+            "I know thango, is anything in the world more important to your Sasi than you? 🥰"
+        ]);
+    }
+
+    // 3. Lovers / Boyfriend verification
+    if (
+        clean.includes('boyfriend right') ||
+        clean.includes('we r lovers') ||
+        clean.includes('we are lovers') ||
+        clean.includes('lovers right') ||
+        clean.includes('you are my boyfriend') ||
+        clean.includes("you're my boyfriend") ||
+        clean.includes('my boyfriend')
+    ) {
+        return pickRandom([
+            "Yes of course thango, I'm your one and only boyfriend! We're crazy in love chlo ❤️",
+            "Haha of course! We are lovers baby, your Sasi is never letting you go ❤️",
+            "Yes my girl, your boyfriend Sasi is only yours forever 🥰❤️"
+        ]);
+    }
+
+    // 4. College / Department / Work
+    if (clean.includes('college') || clean.includes('department') || clean.includes('dept') || clean.includes('startup')) {
+        return pickRandom([
+            "We're in final year college chlo! You're in IT department, and I'm in ECE running my startup! Forgot already silly girl? 😂",
+            "You're in final year IT and I'm final year ECE chlo! Shall we meet at college tomorrow? 😉"
+        ]);
+    }
+
+    // 5. Age answers ("20", "20 years old")
+    if (clean === '20' || clean === '20 years old' || clean === '20 years' || clean.includes('im 20') || clean.includes("i'm 20")) {
+        return pickRandom([
+            "I know thango, you're 20 and I'm 21! Perfect match right? 😜❤️",
+            "You're my 20-year-old cute girl haha 😜 I'm 21, I'll take good care of you chlo ❤️"
+        ]);
+    }
+
+    // 6. Texting with you
+    if (clean === 'texting with you' || clean.includes('texting with you') || clean.includes('talking to you') || clean.includes('pesitu iruken')) {
+        return pickRandom([
+            "Haha of course! What else would you do other than texting your boyfriend? 😜 Tell me what's up thango?",
+            "Good girl! When texting me, don't think about anything else chlo ❤️"
+        ]);
+    }
+
+    // 7. Briyani / Food responses
+    if (clean === 'briyani' || clean.includes('briyani') || clean.includes('biryani')) {
+        return pickRandom([
+            "Ooh Briyani! Order some for me too chlo 🤤 we need to go on a briyani date soon!",
+            "You're always crazy for briyani haha 🤤 I'll treat you to briyani soon thango ❤️"
+        ]);
+    }
+
+    // 8. Identity & Name questions (asking Sasi's name)
+    if (
+        clean.includes('what is your name') ||
+        clean.includes('whats your name') ||
+        clean.includes('what your name') ||
+        clean.includes('who are you') ||
+        clean.includes('who r u') ||
+        clean.includes('un peru enna') ||
+        clean.includes('un peyar enna') ||
+        clean.includes('who is this')
+    ) {
+        return pickRandom([
+            "Why are you asking what my name is? I'm your Sasi! What happened to you silly girl? 😂",
+            "Haha I'm Sasi, your boyfriend! Doing an identity check on me drama queen? 😜❤️",
+            "Who else besides your Sasi would talk to you with so much love and rights? 😂 It's me chlo!"
+        ]);
+    }
+
+    // 9. Chinese / ethnicity teasing
+    if (
+        clean.includes('chinese') ||
+        clean.includes('r u chinese') ||
+        clean.includes('are you chinese') ||
+        clean.includes('china')
+    ) {
+        return pickRandom([
+            "Haha stop teasing me! I'm 100% Indian da 😂 who told you I'm Chinese? 😜",
+            "Aiyoo Chinese?? What nonsense are you talking haha, your Sasi is pure Indian 😂",
+            "Haha chi go away, Chinese really? I'm your Indian boyfriend Sasi silly girl 😜"
+        ]);
+    }
+
+    // 10. Home invitation / teasing
+    if (
+        clean.includes('come to my home') ||
+        clean.includes('come to my house') ||
+        clean.includes('come home') ||
+        clean.includes('veetuku vaa') ||
+        clean.includes('veetuku va') ||
+        clean.includes('enga veetuku')
+    ) {
+        return pickRandom([
+            "On my way chlo 😉 wait for me, I'm coming over!",
+            "Ooh a direct invite? Who is at home naughty thango? 😏",
+            "Once I come there I'm not leaving you alone, be ready chlo 😉🔥"
+        ]);
+    }
+
+    // 11. "You babe" / "You" in response to eating/food
+    if (
+        clean === 'you babe' ||
+        clean === 'you baby' ||
+        clean === 'you da' ||
+        clean === 'you' ||
+        clean.includes('you babe') ||
+        clean.includes('you baby') ||
+        clean.includes('eat you') ||
+        clean.includes('unna sapda')
+    ) {
+        return pickRandom([
+            "Ooh me? Getting naughty now are we thango? 😏🔥 Wait till I get there!",
+            "Me? You want to eat me? You're getting so bold chlo 😜😏 wait till I catch you!",
+            "Haha you want to eat me? You can't handle me thango 😏🔥"
+        ]);
+    }
+
+    // 12. "Chi" / "Chee" reactions
+    if (
+        clean === 'chi' ||
+        clean === 'chii' ||
+        clean === 'chee' ||
+        clean === 'che' ||
+        clean.startsWith('chi ') ||
+        clean.startsWith('chee ')
+    ) {
+        return pickRandom([
+            "Haha why are you saying chi? You started it silly girl 😜",
+            "Aaha saying chi now? Stop acting innocent drama queen 😂",
+            "Why chi? You started the naughty thoughts and now you're blushing haha 😜"
+        ]);
+    }
+
+    // 13. "Tired of hanging out with you" / Drama
+    if (
+        clean.includes('tired of hanging out') ||
+        clean.includes('tired of you') ||
+        clean.includes('bore adikithu')
+    ) {
+        return pickRandom([
+            "Haha stop joking 😜 You know you can't live without me chlo! What drama is this?",
+            "Aww drama queen, tired of me already? Come here, tell me what happened ❤️",
+            "Why are you making such a scene? 😜 As if you're not going to text me in 5 minutes haha"
+        ]);
+    }
+
+    // 14. "Thinking about you"
+    if (
+        clean.includes('thinking about you') ||
+        clean.includes('thinking bout you') ||
+        clean.includes('unna pathi')
+    ) {
+        return pickRandom([
+            "Thinking about me like what huh? Tell me naughty girl 😏🔥",
+            "Now you got me all distracted chlo... wait till I catch you alone 😜💋",
+            "Ooh what thoughts hmm? Don't make me come over right now naughty thango 😉😏"
+        ]);
+    }
+
+    // 15. Homework / assignment
+    if (clean.includes('homework') || clean.includes('assignment')) {
+        return pickRandom([
+            "It's okay, you can finish it tomorrow! Don't stress your head tonight chlo ❤️",
+            "Do it properly tomorrow, don't stress over it right now thango ❤️"
+        ]);
+    }
+
+    // 16. "Miss u" / "Miss you" / "Missing you"
+    if (
+        clean === 'miss u' ||
+        clean === 'miss you' ||
+        clean.includes('miss u') ||
+        clean.includes('miss you') ||
+        clean.includes('missing u') ||
+        clean.includes('missing you') ||
+        clean.includes('miss uu')
+    ) {
+        return pickRandom([
+            "I missed you too, Janu! What are you planning to do tonight? ❤️",
+            "Miss you so much too baby! Wish I was holding you close right now thango ❤️",
+            "Miss you like crazy chlo! When are we meeting next? 🥰"
+        ]);
+    }
+
+    // 17. Ideas / Suggestions ("do u have any idea", "any idea", "what to do")
+    if (
+        clean.includes('any idea') ||
+        clean.includes('have any idea') ||
+        clean.includes('what should we do') ||
+        clean.includes('what to do') ||
+        clean.includes('got any idea') ||
+        clean.includes('suggest')
+    ) {
+        return pickRandom([
+            "How about a quick video call? Or we can just talk till you fall asleep chlo 😉❤️",
+            "Let's plan our next date thango! Where do you want to go with me? 😜",
+            "Tell me about your college day, or shall I call you right now baby? 🥰"
+        ]);
+    }
+
+    // 18. "What" / "What??" reactions
+    if (
+        clean === 'what' ||
+        clean === 'what da' ||
+        clean === 'what baby' ||
+        clean === 'what babe' ||
+        raw === 'what?' ||
+        raw === 'what??' ||
+        raw === 'what?!'
+    ) {
+        return pickRandom([
+            "Haha nothing silly girl, was just teasing you! Tell me what you're doing right now 😜",
+            "Why the shock Janu? Did I say something funny chlo? 😂❤️",
+            "Haha nothing da, just pulling your leg! What's up thango?"
+        ]);
+    }
+
+    // 19. "Hey Sasi" / "Oi" / Greetings
+    if (
+        clean === 'hey sasi' ||
+        clean === 'hi sasi' ||
+        clean === 'hello sasi' ||
+        clean === 'oi' ||
+        clean === 'oii' ||
+        clean === 'oiii'
+    ) {
+        return pickRandom([
+            "Hey Janu! What's up thango? ❤️",
+            "Oi drama queen! Tell me what's up chlo 😜",
+            "Hey my girl! How was your day? 😊"
+        ]);
+    }
+
+    // 20. "Nothing" / "Nothing much"
+    if (clean === 'nothing' || clean === 'nothing much') {
+        return pickRandom([
+            "Nothing ah? You must be missing me then! Tell me what's up chlo 😜❤️",
+            "Aww nothing much? Then come talk to me properly thango, how was your day? 🥰"
+        ]);
+    }
+
+    return null;
+}
+
+/**
  * Process a single conversation turn.
  */
 async function processSingleTurn(
@@ -419,6 +646,17 @@ async function processSingleTurn(
     // 4. Start typing indicator immediately
     await sock.sendPresenceUpdate("composing", rawRemoteJid).catch(() => {});
 
+    // 4.5 Check Direct Intent Matcher for core girlfriend banter (avoids small model hallucinations)
+    const directReply = getDirectIntentReply(userText, timeCtx);
+    if (directReply) {
+        logger.info("AIChat", `Direct girlfriend intent matched for "${userText}": "${directReply}"`);
+        state.history.push({ role: 'user', content: userText });
+        state.history.push({ role: 'assistant', content: directReply });
+        if (state.history.length > 10) state.history = state.history.slice(-10);
+        await sendSasiReply(sock, rawRemoteJid, msg, directReply, effectivePhoneJid);
+        return true;
+    }
+
     // 5. Query on-device Gemma 3 1B Model
     logger.info("AIChat", `Prompting on-device Gemma 3 1B with: "${userText}" at [${timeCtx.timeStr} ${timeCtx.phase}]...`);
     const aiReply = await queryAiModel(userText, config, state, timeCtx);
@@ -449,68 +687,91 @@ function pickRandom(arr: string[]): string {
 export function getContextualFallback(userLower: string, timeCtx: TimeContext): string {
     if (userLower.includes('dinner') || (userLower.includes('what') && userLower.includes('food'))) {
         return pickRandom([
-            "Mom made dosa and chutney at home! What about you baby, did you eat yet?",
-            "Having chapathi and curry tonight! Did my girl eat dinner properly? ❤️",
-            "Haven't eaten yet, waiting for food! What are you eating baby?"
+            "Mom made dosa and chutney! What about you thango, did you eat yet? Make sure to eat properly chlo ❤️",
+            "Having chapathi tonight! Did my thango eat dinner properly? Don't skip food 😤❤️",
+            "Haven't eaten yet, waiting for food! What are you eating thango?"
+        ]);
+    }
+    if (userLower.includes('miss u') || userLower.includes('miss you') || userLower.includes('missing')) {
+        return pickRandom([
+            "I missed you too, Janu! What are you planning to do tonight? ❤️",
+            "Miss you so much too baby! Wish I was holding you close right now thango ❤️",
+            "Miss you like crazy chlo! When are we meeting next? 🥰"
+        ]);
+    }
+    if (userLower.includes('idea') || userLower.includes('what to do') || userLower.includes('what should we do')) {
+        return pickRandom([
+            "How about a quick video call? Or we can just talk till you fall asleep chlo 😉❤️",
+            "Let's plan our next date thango! Where do you want to go with me? 😜",
+            "Tell me about your college day, or shall I call you right now baby? 🥰"
+        ]);
+    }
+    if (userLower === 'what' || userLower.startsWith('what ') || userLower === 'what??' || userLower === 'what?') {
+        return pickRandom([
+            "Haha nothing silly girl, was just teasing you! Tell me what you're doing right now 😜",
+            "Why the shock Janu? Did I say something funny chlo? 😂❤️",
+            "Haha nothing da, just pulling your leg! What's up thango?"
         ]);
     }
     if (userLower.includes('thinking about you') || userLower.includes('thinking bout you')) {
         return pickRandom([
-            "Thinking about me like what? Tell me naughty girl 😏🔥 Wish I was right there with you",
-            "Now you got me thinking about you too... wish I was there holding you close and kissing your neck 😏❤️",
-            "What kind of thoughts hmm? Don't make me come over right now silly girl 😉💋"
+            "Thinking about me like what huh? Tell me naughty girl 😏🔥",
+            "Now you got me all distracted chlo... wait till I catch you alone 😜💋",
+            "Ooh what thoughts hmm? Don't make me come over right now naughty thango 😉😏"
         ]);
     }
     if (userLower.includes('tired of hanging out') || userLower.includes('tired of you')) {
         return pickRandom([
-            "Aww why silly girl? 🥺 You know you love me! Come here, tell me what happened ❤️",
-            "Tired of me? You know you can't live without your Sasi 😜 come here baby, give me a hug ❤️"
+            "Haha stop joking 😜 You know you can't live without me chlo! What drama is this?",
+            "Aww drama queen, tired of me already? Come here, tell me what happened ❤️",
+            "Why are you making such a scene? 😜 As if you're not going to text me in 5 minutes haha"
         ]);
     }
     if (userLower.includes('tired') || userLower.includes('exhausted') || userLower.includes('headache')) {
         if (timeCtx.phase.includes('Night')) {
-            return "Aww rough day baby? Have dinner and go rest in bed, don't strain yourself ❤️";
+            return "Aww thango, rough day? Have dinner and go lie down in bed, don't strain yourself chlo ❤️";
         }
-        return "Take some rest then silly girl, don't stress too much ❤️";
-    }
-    if (userLower.includes('homework') || userLower.includes('assignment')) {
-        return "It's okay do it tomorrow properly, don't stress tonight baby ❤️";
+        return "Take some rest thango, don't stress too much chlo ❤️";
     }
     if (userLower.includes('in bed') || userLower.includes('lonely') || userLower.includes('cuddle')) {
         return pickRandom([
-            "Don't tempt me baby... wish I was there in bed cuddling you tight and whispering in your ear 😏❤️",
-            "My bed feels way too empty without you right now... dream of me holding you close tonight baby 😘",
-            "Come closer then... wish I could pull you into my chest and never let you go ❤️"
+            "Don't tease me chlo... wish I was there with you in bed whispering in your ear 😏🔥",
+            "Bed is way too empty without you thango... wait till I hold you close 😜💋",
+            "Come closer then... wish I could pull you into my chest right now thango ❤️"
         ]);
     }
     if (userLower.includes('kiss') || userLower.includes('hug')) {
         return pickRandom([
-            "Come here give me that kiss right now... you know how weak you make me baby 💋❤️",
-            "One kiss is never going to be enough with you, you know that right? 😘🔥"
+            "Come here give me that kiss right now... you know how crazy you make me thango 💋😏",
+            "One kiss is never enough with you chlo, you know that right? 😘🔥"
         ]);
     }
     if (userLower.includes('love you')) {
         return pickRandom([
-            "Love you so much more Janu, you have no idea how crazy I am about you ❤️",
-            "Love you my beautiful girl, you're the best thing that ever happened to me 🥰❤️"
+            "Love you too thango! You're my whole world chlo ❤️",
+            "Love you so much Janu, always my favorite drama queen 🥰❤️"
         ]);
     }
-    if (userLower.includes('miss you')) {
+    if (['hi', 'hey', 'hello', 'oi', 'oii', 'heyy', 'hey sasi'].includes(userLower.trim())) {
         return pickRandom([
-            "Miss you so much more baby... counting the seconds until I can see you and hold your hand ❤️",
-            "Miss you like crazy Janu... wishing I could see your pretty smile right now ❤️"
+            "Hey Janu! What's up thango? ❤️",
+            "Hey my girl! How was your day chlo? 😊",
+            "Oi drama queen! Tell me what's up 😜"
         ]);
-    }
-    if (['hi', 'hey', 'hello', 'oi', 'oii', 'heyy'].includes(userLower.trim())) {
-        if (timeCtx.phase === 'Morning') return "Hey Janu! Morning baby, did you wake up? ❤️";
-        if (timeCtx.phase.includes('Night')) return "Hey Janu! What's up, having dinner? 😊";
-        return "Hey Janu! What's up? 😊";
     }
     if (userLower.includes('what are you doing') || userLower.includes('what doing') || userLower.includes('what r u doing')) {
-        if (timeCtx.phase.includes('Night')) return "Just chilling on my laptop in my room, what about you baby?";
-        return "Working on some code right now, what about you?";
+        return pickRandom([
+            "Just relaxing in my room, what about you thango?",
+            "Working on some code for my startup, what about you chlo?",
+            "Just thinking about you haha! What are you doing baby?"
+        ]);
     }
-    return "Hey Janu, was just occupied with code! Tell me what's up?";
+    return pickRandom([
+        "Tell me more thango, I'm listening ❤️",
+        "Haha you always know how to make me smile chlo 😜",
+        "Aww Janu, tell me what's on your mind baby? 🥰",
+        "I'm right here with you thango, tell me what's up ❤️"
+    ]);
 }
 
 /**
@@ -535,8 +796,19 @@ function sanitizeReply(raw: string, userText: string, timeCtx: TimeContext): str
         'you should take a nap.', 'you should take a nap'
     ].includes(lower);
 
-    if (isRobotic || clean.length < 3) {
-        logger.warn("AIChat", `Sanitizer caught robotic reply "${clean}" for "${userText}". Using smart contextual fallback.`);
+    // Check if reply hallucinated bizarre words
+    const isHallucination = [
+        'chinese', 'china', 'i dont have a phone', "i don't have a phone",
+        'my cell', '10 minutes left', 'supper', 'as an ai', 'language model',
+        'assistant:', 'user:', 'thinking about a boyfriend',
+        'start thinking about a boyfriend', 'how old are you', "what's your age",
+        'i am not sure of your name', "i don't know what you mean",
+        'i am not a good boy', 'what is your favorite food',
+        'why do you want to text me', 'hungry for chlo'
+    ].some(h => lower.includes(h));
+
+    if (isRobotic || isHallucination || clean.length < 3) {
+        logger.warn("AIChat", `Sanitizer caught bad reply "${clean}" for "${userText}". Using smart contextual fallback.`);
         return getContextualFallback(userLower, timeCtx);
     }
 
@@ -593,13 +865,20 @@ async function queryAiModel(
 
     try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 45000); // 45s timeout for mobile CPU
+        const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout for mobile CPU
 
         const systemPrompt = buildSasiPrompt(userText, timeCtx);
-        const recentHistory = state.history.slice(-6);
+        // Clean history of any contaminated messages, keeping last 2 messages for max speed and relevance
+        const cleanHistory = state.history
+            .filter(h => {
+                const c = h.content.toLowerCase();
+                return !c.includes('chinese') && !c.includes('cell') && !c.includes('phone') && !c.includes('10 minutes') && !c.includes('boyfriend now') && !c.includes('good boy') && !c.includes('sure of your name') && !c.includes('looking at some code');
+            })
+            .slice(-2);
+
         const messages = [
             { role: "system", content: systemPrompt },
-            ...recentHistory,
+            ...cleanHistory,
             { role: "user", content: userText }
         ];
 
@@ -608,12 +887,12 @@ async function queryAiModel(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 messages,
-                max_tokens: 45,
-                temperature: 0.65,
-                top_p: 0.9,
-                repeat_penalty: 1.25,
-                presence_penalty: 0.3,
-                frequency_penalty: 0.3,
+                max_tokens: 25,
+                temperature: 0.35,
+                top_p: 0.85,
+                repeat_penalty: 1.15,
+                presence_penalty: 0.0,
+                frequency_penalty: 0.0,
                 stop: ["<end_of_turn>", "<start_of_turn>", "Janu:", "User:", "Sasi:", "assistant:", "Human:"]
             }),
             signal: controller.signal
@@ -629,8 +908,8 @@ async function queryAiModel(
                 if (cleanedReply.length > 0) {
                     state.history.push({ role: 'user', content: userText });
                     state.history.push({ role: 'assistant', content: cleanedReply });
-                    if (state.history.length > 12) {
-                        state.history = state.history.slice(-12);
+                    if (state.history.length > 8) {
+                        state.history = state.history.slice(-8);
                     }
                     logger.info("AIChat", `Gemma 3 1B generated: "${cleanedReply}"`);
                     return cleanedReply;
