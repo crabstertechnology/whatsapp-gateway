@@ -23,12 +23,24 @@ import { redirect } from "next/navigation";
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-    const session = await auth();
+    let session = null;
+    try {
+        session = await auth();
+    } catch (authErr) {
+        console.error("DashboardPage: auth error", authErr);
+    }
+
     if (!session?.user) {
         redirect("/auth/login");
     }
 
-    const sessions = await getAccessibleSessions(session.user.id!, session.user.role || "OWNER");
+    let sessions: any[] = [];
+    try {
+        sessions = await getAccessibleSessions(session.user.id!, session.user.role || "OWNER");
+    } catch (dbErr) {
+        console.error("DashboardPage: getAccessibleSessions error", dbErr);
+        sessions = [];
+    }
 
     const totalSessions = sessions.length;
     const connectedSessions = sessions.filter(s => s.status === 'CONNECTED').length;

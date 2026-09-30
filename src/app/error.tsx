@@ -41,6 +41,17 @@ export default function GlobalError({
             const t = setTimeout(() => reset(), 100);
             return () => clearTimeout(t);
         }
+
+        // Auto-recover transient Server Component render errors or network blips (e.g. Neon database cold start / connection drop)
+        const isServerRenderError =
+            message.includes("Server Components render") ||
+            message.includes("digest") ||
+            message.includes("fetch failed");
+
+        if (isServerRenderError) {
+            const t = setTimeout(() => reset(), 1500);
+            return () => clearTimeout(t);
+        }
     }, [error, reset]);
 
     return (

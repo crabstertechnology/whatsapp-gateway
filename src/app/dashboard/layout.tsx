@@ -20,7 +20,12 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const session = await auth();
+    let session: any = null;
+    try {
+        session = await auth();
+    } catch (e) {
+        console.error("DashboardLayout: auth error", e);
+    }
     
     // Redirect to login if no valid session
     if (!session?.user) {

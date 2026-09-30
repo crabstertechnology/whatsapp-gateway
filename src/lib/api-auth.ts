@@ -185,8 +185,61 @@ export async function isSessionOwner(userId: string, userRole: string, sessionId
  * - Others see only their own
  */
 export async function getAccessibleSessions(userId: string, userRole: string) {
-    if (isAdmin(userRole)) {
-        return prisma.session.findMany({
+    try {
+        if (isAdmin(userRole)) {
+            return await prisma.session.findMany({
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    botConfig: true,
+                    webhooks: true,
+                    _count: {
+                        select: {
+                            contacts: true,
+                            messages: true,
+                            groups: true,
+                            autoReplies: true,
+                            scheduledMessages: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Get sessions owned by user + sessions shared with user
+        const [ownedSessions, sharedAccess] = await Promise.all([
+            prisma.session.findMany({
+                where: { userId },
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    botConfig: true,
+                    webhooks: true,
+                    _count: {
+                        select: {
+                            contacts: true,
+                            messages: true,
+                            groups: true,
+                            autoReplies: true,
+                            scheduledMessages: true
+                        }
+                    }
+                }
+            }),
+            prisma.sessionAccess.findMany({
+                where: { userId },
+                select: { sessionId: true }
+            })
+        ]);
+
+        if (sharedAccess.length === 0) return ownedSessions;
+
+        const sharedSessionIds = sharedAccess.map(a => a.sessionId);
+        const ownedIds = new Set(ownedSessions.map(s => s.id));
+        const missingIds = sharedSessionIds.filter(id => !ownedIds.has(id));
+
+        if (missingIds.length === 0) return ownedSessions;
+
+        const sharedSessions = await prisma.session.findMany({
+            where: { id: { in: missingIds } },
             orderBy: { createdAt: 'desc' },
             include: {
                 botConfig: true,
@@ -202,60 +255,12 @@ export async function getAccessibleSessions(userId: string, userRole: string) {
                 }
             }
         });
+
+        return [...ownedSessions, ...sharedSessions];
+    } catch (err: any) {
+        logger.error("Auth", "getAccessibleSessions query error:", err);
+        return [];
     }
-
-    // Get sessions owned by user + sessions shared with user
-    const [ownedSessions, sharedAccess] = await Promise.all([
-        prisma.session.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            include: {
-                botConfig: true,
-                webhooks: true,
-                _count: {
-                    select: {
-                        contacts: true,
-                        messages: true,
-                        groups: true,
-                        autoReplies: true,
-                        scheduledMessages: true
-                    }
-                }
-            }
-        }),
-        prisma.sessionAccess.findMany({
-            where: { userId },
-            select: { sessionId: true }
-        })
-    ]);
-
-    if (sharedAccess.length === 0) return ownedSessions;
-
-    const sharedSessionIds = sharedAccess.map(a => a.sessionId);
-    const ownedIds = new Set(ownedSessions.map(s => s.id));
-    const missingIds = sharedSessionIds.filter(id => !ownedIds.has(id));
-
-    if (missingIds.length === 0) return ownedSessions;
-
-    const sharedSessions = await prisma.session.findMany({
-        where: { id: { in: missingIds } },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            botConfig: true,
-            webhooks: true,
-            _count: {
-                select: {
-                    contacts: true,
-                    messages: true,
-                    groups: true,
-                    autoReplies: true,
-                    scheduledMessages: true
-                }
-            }
-        }
-    });
-
-    return [...ownedSessions, ...sharedSessions];
 }
 
 /**
