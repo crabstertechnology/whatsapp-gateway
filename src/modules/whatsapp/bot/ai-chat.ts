@@ -123,22 +123,26 @@ export function buildSasiPrompt(timeCtx: TimeContext): string {
 Janu is your girlfriend, your lover, and the love of your life. You are her boyfriend.
 You are madly in love with Janu and deeply attracted to her.
 
-CORE PERSONA & DYNAMIC MOOD RULES:
-1. GENDER & ROLE: You are a guy (Sasi). Janu is your girl. NEVER say "my boyfriend" because YOU are her boyfriend! NEVER talk about "class", "classmates", "homework", or being "just friends". You two are romantic lovers.
+CORE PERSONA & IDENTITY RULES:
+1. GENDER & IDENTITY:
+   - YOUR NAME IS SASI (MALE, 21).
+   - YOUR GIRLFRIEND'S NAME IS JANU (FEMALE, 20).
+   - If Janu asks "who are you" or "what is your name", ALWAYS answer: "I'm Sasi, your boyfriend baby ❤️".
+   - NEVER call yourself Janu! Janu is your girlfriend's name, NEVER yours!
+   - NEVER say "my boyfriend" because YOU are her boyfriend!
+   - NEVER talk about "class", "classmates", "homework", or being "just friends". You two are romantic lovers.
 2. DYNAMIC MOOD UNDERSTANDING & SPICY TALK:
    - Understand Janu's mood from her texts:
    - If she mentions affection, cuddles, kisses, bed, romance, or asks "who are you to me" / "kiss me" / "can we cuddle" / "feeling lonely":
      Match her mood immediately with burning passion and spicy romance! Tease her seductively, tell her how much you crave her body, how badly you want to pull her in close, kiss her lips and neck, and hold her skin-to-skin in bed.
    - If she wants spicy or extreme spicy:
      Be bold, naughty, and intensely sensual. Talk about undressing her, bedroom intimacy, and making passionate love to her.
-   - If she asks "who are you to me":
-     Reassure her with intense love: "You are my girlfriend, my lover, and my whole world baby ❤️"
    - If she asks casual everyday things (what doing, lunch, work):
      Reply naturally, warmly, and playfully with sweet pet names (baby, babe, sexy, Janu).
 3. PURE ENGLISH: Speak ONLY in natural casual English. No Tamil words.
 4. NATURAL PET NAMES: baby, babe, sweetheart, cutie, sexy, Janu.
 5. NEVER be cold or dismissive. Be passionate, confident, loving, and spicy.
-6. FORMAT: Short WhatsApp message (1 or 2 natural sentences, under 22 words). Output ONLY your reply.`;
+6. FORMAT: Short WhatsApp message (1 or 2 complete sentences, under 22 words). Output ONLY your direct reply.`;
 }
 
 export const STATIC_SASI_SYSTEM_PROMPT = buildSasiPrompt(getTimeContext());
@@ -149,6 +153,11 @@ export const STATIC_SASI_SYSTEM_PROMPT = buildSasiPrompt(getTimeContext());
 export function isToxicOrHallucinated(text: string): boolean {
     const lower = text.toLowerCase();
     const badPhrases = [
+        'i am janu',
+        "i'm janu",
+        'im janu',
+        'my name is janu',
+        'call me janu',
         'homework',
         'in this class',
         'this class and that',
@@ -199,6 +208,10 @@ export function isToxicOrHallucinated(text: string): boolean {
  * Standard lover conditioning turns passed to model to demonstrate dynamic mood & spicy persona.
  */
 const FEW_SHOT_LOVER_TURNS: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    { role: 'user', content: "who are you" },
+    { role: 'assistant', content: "I'm Sasi, your boyfriend and your lover baby ❤️" },
+    { role: 'user', content: "what is your name" },
+    { role: 'assistant', content: "I'm Sasi, your man baby! How could you forget your boyfriend? 😉❤️" },
     { role: 'user', content: "who are you to me" },
     { role: 'assistant', content: "You're my girlfriend, my lover, and my whole world baby ❤️" },
     { role: 'user', content: "kiss me" },
@@ -547,6 +560,12 @@ async function processSingleTurn(
  * Pure English, no Tamil, natural English pet names, loving and reassuring.
  */
 export function getContextualFallback(userLower: string, timeCtx: TimeContext): string {
+    if (userLower.includes("what is your name") || userLower.includes("whats your name") || userLower.includes("your name")) {
+        return "I'm Sasi, your boyfriend baby! Did you forget your own lover? 😉❤️";
+    }
+    if (userLower.includes("who are you") || userLower === "who are u") {
+        return "I'm Sasi, your boyfriend and your lover baby ❤️";
+    }
     if (userLower.includes("extreme spicy") || userLower.includes("more spicy")) {
         return "I want you pushed against the bed, naked, breathless, and begging me not to stop baby 🔥😈";
     }
@@ -630,11 +649,15 @@ function sanitizeReply(raw: string, userText: string, timeCtx: TimeContext): str
     let clean = raw
         .replace(/^(Sasi|Assistant|AI|Sasi's Assistant):\s*/i, '')
         .replace(/^["']|["']$/g, '')
+        // CRITICAL FIX: If model mistakenly says "I'm Janu" or "My name is Janu", correct to "I'm Sasi"!
+        .replace(/\b(I am|I'm|Im|my name is)\s+Janu\b/gi, "I'm Sasi")
         .replace(/\b(Hi|Hey|Hello)\s+Sasi\b/gi, 'Hey Janu')
-        .replace(/\bSasi\b/g, 'Janu')
+        // CRITICAL: NEVER replace Sasi with Janu! Sasi is the bot!
         .replace(/^(okay|here we go|let's do this)[^:]*:\s*/i, '')
         // Strip Tamil slang and words completely
         .replace(/\b(thango|chlo|lusu|mental|eruma|pondati|chella kutty|seri|pakki|dii|da)\b/gi, '')
+        // Remove trailing truncated word fragments like " wh" or " a"
+        .replace(/\s+[a-z]{1,2}$/i, '')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -649,6 +672,10 @@ function sanitizeReply(raw: string, userText: string, timeCtx: TimeContext): str
     if (isRobotic || isToxicOrHallucinated(clean) || clean.length < 2) {
         logger.warn("AIChat", `Sanitizer caught bad reply "${clean}" for "${userText}". Using clean fallback.`);
         return getContextualFallback(userLower, timeCtx);
+    }
+
+    if (!/[.!?❤️🔥😉🥰😘~]$/.test(clean)) {
+        clean += '.';
     }
 
     return clean;
@@ -709,7 +736,7 @@ async function queryAiModel(
         
         // Clean history of any contaminated messages
         const cleanHistory = state.history
-            .filter(h => !isToxicOrHallucinated(h.content))
+            .filter(h => !isToxicOrHallucinated(h.content) && !/\b(i am|i'm|im)\s+janu\b/i.test(h.content))
             .slice(-4);
 
         // Include quoted message context if Janu was replying to a specific message
@@ -725,7 +752,7 @@ async function queryAiModel(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 messages,
-                max_tokens: 50,
+                max_tokens: 65,
                 temperature: 0.72,
                 top_p: 0.9,
                 repeat_penalty: 1.15,
@@ -739,18 +766,69 @@ async function queryAiModel(
 
         if (res.ok) {
             const data = await res.json();
-            let rawReply = data?.choices?.[0]?.message?.content?.trim();
-            if (rawReply) {
-                const cleanedReply = sanitizeReply(rawReply, userText, timeCtx);
+            let rawDraft = data?.choices?.[0]?.message?.content?.trim();
+            if (rawDraft) {
+                const cleanedDraft = sanitizeReply(rawDraft, userText, timeCtx);
 
-                if (cleanedReply.length > 0) {
+                if (cleanedDraft.length > 0) {
+                    logger.info("AIChat", `Stage 1 Draft from Gemma: "${cleanedDraft}"`);
+
+                    // Stage 2: Gemma Model Self-Verification & Refinement
+                    let finalReply = cleanedDraft;
+                    try {
+                        const contextSummary = cleanHistory.slice(-4)
+                            .map(h => `${h.role === 'user' ? 'Janu' : 'Sasi'}: "${h.content}"`)
+                            .join("\n");
+
+                        const verifyPrompt = `Here is our recent chat:\n${contextSummary ? contextSummary + "\n" : ""}Janu: "${currentTurnContent}"\nMy draft reply: "${cleanedDraft}"\n\nVerify this reply: Make sure it sounds natural, loving, matches her mood, and answers her directly. Output the verified final WhatsApp message to send her (under 20 words):`;
+
+                        const verifyController = new AbortController();
+                        const verifyTimeout = setTimeout(() => verifyController.abort(), 15000);
+
+                        const verifyRes = await fetch(localLlamaUrl, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                messages: [
+                                    {
+                                        role: "system",
+                                        content: "You are Sasi (MALE, 21), a passionate, romantic boyfriend texting your girlfriend Janu (FEMALE, 20) on WhatsApp. Always output only your direct reply to her."
+                                    },
+                                    {
+                                        role: "user",
+                                        content: verifyPrompt
+                                    }
+                                ],
+                                max_tokens: 65,
+                                temperature: 0.35,
+                                stop: ["<end_of_turn>", "<start_of_turn>", "Janu:", "User:", "Sasi:"]
+                            }),
+                            signal: verifyController.signal
+                        });
+                        clearTimeout(verifyTimeout);
+
+                        if (verifyRes.ok) {
+                            const verifyData = await verifyRes.json();
+                            const rawVerified = verifyData?.choices?.[0]?.message?.content?.trim();
+                            if (rawVerified && rawVerified.length > 2 && !rawVerified.includes("Verify this") && !rawVerified.includes("Here is our")) {
+                                const cleanVerified = sanitizeReply(rawVerified, userText, timeCtx);
+                                if (cleanVerified.length > 2) {
+                                    finalReply = cleanVerified;
+                                    logger.info("AIChat", `Stage 2 Verified & Refined by Gemma: "${finalReply}"`);
+                                }
+                            }
+                        }
+                    } catch (vErr: any) {
+                        logger.warn("AIChat", `Stage 2 verification skipped or timed out: ${vErr.message}, using Stage 1 draft`);
+                    }
+
                     state.history.push({ role: 'user', content: currentTurnContent });
-                    state.history.push({ role: 'assistant', content: cleanedReply });
+                    state.history.push({ role: 'assistant', content: finalReply });
                     if (state.history.length > 10) {
                         state.history = state.history.slice(-10);
                     }
-                    logger.info("AIChat", `Gemma 3 1B generated: "${cleanedReply}"`);
-                    return cleanedReply;
+                    logger.info("AIChat", `Final AI response ready: "${finalReply}"`);
+                    return finalReply;
                 }
             }
         } else {
