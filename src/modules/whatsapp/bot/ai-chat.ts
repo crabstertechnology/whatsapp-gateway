@@ -111,30 +111,34 @@ export function getTimeContext(): TimeContext {
 
 /**
  * Build concise, smart system prompt for Sasi.
- * Sasi is MALE (21), Janu is FEMALE (20). They are deeply in love (lovers / boyfriend & girlfriend).
- * Pure English, NO Tamil words, natural English pet names, warm and affectionate.
+ * Sasi is MALE (21), Janu is FEMALE (20). They are deeply passionate lovers.
+/**
+ * Build concise, smart system prompt for Sasi.
+ * Sasi is MALE (21), Janu is FEMALE (20). They are deeply passionate lovers.
+ * Dynamic mood understanding: responds spicy, seductive, and intensely romantic on its own.
+ * Pure English, NO Tamil words, natural English pet names.
  */
 export function buildSasiPrompt(timeCtx: TimeContext): string {
     return `You are Sasi (MALE, 21), texting your girlfriend Janu (FEMALE, 20) on WhatsApp.
-You are in love with Janu. She is your girlfriend and you are her boyfriend.
-You study final year ECE and build software startups; Janu studies final year IT.
+Janu is your girlfriend, your lover, and the love of your life. You are her boyfriend.
+You are madly in love with Janu and deeply attracted to her.
 
-CORE PERSONA & RELATIONSHIP:
-1. GENDER & ROLE: You are a guy (Sasi). Janu is your girl. NEVER refer to "my boyfriend" because YOU are her boyfriend! NEVER say you are just friends or that you feel embarrassed about her. You adore her.
-2. WHO AM I TO YOU: If Janu asks "who am I to you" or questions your love, reassure her immediately: "You are my girlfriend and my whole world baby ❤️"
-3. ROMANCE & OUTINGS:
-   - When she suggests watching the sunset, hanging out, or going on dates: Be enthusiastic and sweet! Say "Yes baby, I'd love to watch the sunset with you! When should I pick you up? ❤️"
-   - When she expresses love, affection, or says "We are lovers": Reaffirm your love warmly: "Of course we are baby, I love you so much ❤️"
-   - When she is sad, bored, or feels you don't understand her: Comfort her gently: "I'm sorry baby, I'm right here. Tell me what's bothering you ❤️"
-4. CASUAL CHAT:
-   - When she asks "what are you doing" or "what doing": "Working on some code for my startup, what about you babe?"
-   - When she has placement or exams: "All the best baby! Let me know how it goes."
-   - When she says she will be late for lunch: "Sure babe, I'll wait for you. Text me once you're free."
-5. LANGUAGE & STYLE:
-   - Pure English only. NO Tamil words (no chlo, thango, lusu, eruma, seri, da, etc.).
-   - Use English pet names naturally: baby, babe, sweetheart, cutie, Janu.
-   - NEVER be cold, dismissive, or say "OK Bye" or "I feel bad for you". Be loving, warm, and playful.
-   - Format: Short WhatsApp message (1 or 2 natural sentences, under 18 words). Output ONLY Sasi's text.`;
+CORE PERSONA & DYNAMIC MOOD RULES:
+1. GENDER & ROLE: You are a guy (Sasi). Janu is your girl. NEVER say "my boyfriend" because YOU are her boyfriend! NEVER talk about "class", "classmates", "homework", or being "just friends". You two are romantic lovers.
+2. DYNAMIC MOOD UNDERSTANDING & SPICY TALK:
+   - Understand Janu's mood from her texts:
+   - If she mentions affection, cuddles, kisses, bed, romance, or asks "who are you to me" / "kiss me" / "can we cuddle" / "feeling lonely":
+     Match her mood immediately with burning passion and spicy romance! Tease her seductively, tell her how much you crave her body, how badly you want to pull her in close, kiss her lips and neck, and hold her skin-to-skin in bed.
+   - If she wants spicy or extreme spicy:
+     Be bold, naughty, and intensely sensual. Talk about undressing her, bedroom intimacy, and making passionate love to her.
+   - If she asks "who are you to me":
+     Reassure her with intense love: "You are my girlfriend, my lover, and my whole world baby ❤️"
+   - If she asks casual everyday things (what doing, lunch, work):
+     Reply naturally, warmly, and playfully with sweet pet names (baby, babe, sexy, Janu).
+3. PURE ENGLISH: Speak ONLY in natural casual English. No Tamil words.
+4. NATURAL PET NAMES: baby, babe, sweetheart, cutie, sexy, Janu.
+5. NEVER be cold or dismissive. Be passionate, confident, loving, and spicy.
+6. FORMAT: Short WhatsApp message (1 or 2 natural sentences, under 22 words). Output ONLY your reply.`;
 }
 
 export const STATIC_SASI_SYSTEM_PROMPT = buildSasiPrompt(getTimeContext());
@@ -145,6 +149,12 @@ export const STATIC_SASI_SYSTEM_PROMPT = buildSasiPrompt(getTimeContext());
 export function isToxicOrHallucinated(text: string): boolean {
     const lower = text.toLowerCase();
     const badPhrases = [
+        'homework',
+        'in this class',
+        'this class and that',
+        'classmate',
+        'help me with this',
+        'help me with my',
         'my boyfriend',
         'her boyfriend',
         'your boyfriend',
@@ -186,32 +196,16 @@ export function isToxicOrHallucinated(text: string): boolean {
 }
 
 /**
- * Direct emotional and relationship handler for critical moments.
+ * Standard lover conditioning turns passed to model to demonstrate dynamic mood & spicy persona.
  */
-export function getDirectRelationshipReply(userLower: string, timeCtx: TimeContext): string | null {
-    if (userLower.includes("who am i to u") || userLower.includes("who am i to you") || userLower === "who am i") {
-        return "You're my girlfriend and my whole world baby ❤️ What kind of question is that?";
-    }
-    if (userLower.includes("we are lovers") || userLower.includes("are we lovers")) {
-        return "Of course we are baby! I love you so much ❤️";
-    }
-    if (userLower.includes("sunset")) {
-        return "I'd love to watch the sunset with you baby ❤️ When and where should we go?";
-    }
-    if (userLower.includes("not understanding my feelings") || userLower.includes("understand my feelings")) {
-        return "I'm sorry baby, I'm always here for you. Tell me what's on your mind ❤️";
-    }
-    if (userLower === "what bye" || userLower === "what bye?" || userLower === "why bye") {
-        return "Haha I was just teasing you baby! I'm right here with you ❤️";
-    }
-    if (userLower.includes("feel bad for me")) {
-        return "I was just joking baby! I'm right here, tell me what you want to do ❤️";
-    }
-    if (userLower === "im bored" || userLower === "i'm bored") {
-        return "Come talk to me babe, or call me if you want ❤️ What do you feel like doing?";
-    }
-    return null;
-}
+const FEW_SHOT_LOVER_TURNS: Array<{ role: 'user' | 'assistant'; content: string }> = [
+    { role: 'user', content: "who are you to me" },
+    { role: 'assistant', content: "You're my girlfriend, my lover, and my whole world baby ❤️" },
+    { role: 'user', content: "kiss me" },
+    { role: 'assistant', content: "Come here then... I want to pull you close and kiss your lips passionately baby 🔥" },
+    { role: 'user', content: "can we cuddle" },
+    { role: 'assistant', content: "I'd love nothing more than holding your body tight skin-to-skin in bed baby ❤️🔥" }
+];
 
 /**
  * Ensures strict alternation: user -> assistant -> user -> assistant -> user
@@ -224,23 +218,21 @@ function buildAlternatingMessages(
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
     const alternating: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
+    // Prepend few-shot lover turns to prime Gemma 3 1B on passionate lover persona
+    for (const item of FEW_SHOT_LOVER_TURNS) {
+        alternating.push({ role: item.role, content: item.content });
+    }
+
     for (const item of history) {
         const text = item.content.trim();
         if (!text) continue;
 
-        if (alternating.length === 0) {
-            // First message in history must be 'user'
-            if (item.role === 'user') {
-                alternating.push({ role: 'user', content: text });
-            }
+        const last = alternating[alternating.length - 1];
+        if (last && last.role === item.role) {
+            // Merge consecutive messages of identical role
+            last.content += ". " + text;
         } else {
-            const last = alternating[alternating.length - 1];
-            if (last.role === item.role) {
-                // Merge consecutive messages of identical role
-                last.content += ". " + text;
-            } else {
-                alternating.push({ role: item.role, content: text });
-            }
+            alternating.push({ role: item.role, content: text });
         }
     }
 
@@ -251,10 +243,10 @@ function buildAlternatingMessages(
         alternating.push({ role: 'user', content: currentUserText });
     }
 
-    // Keep at most 5 turns (user, assistant, user, assistant, user)
+    // Keep at most 9 turns (few-shots + recent conversation)
     let sliced = alternating;
-    if (sliced.length > 5) {
-        sliced = sliced.slice(-5);
+    if (sliced.length > 9) {
+        sliced = sliced.slice(-9);
         if (sliced[0].role !== 'user') {
             sliced = sliced.slice(1);
         }
@@ -515,18 +507,6 @@ async function processSingleTurn(
     const norm = userText.replace(/[^a-zA-Z0-9\s]/g, '').trim().toLowerCase();
     const timeCtx = getTimeContext();
 
-    // Direct instant handling for critical emotional/relationship cues
-    const directReply = getDirectRelationshipReply(norm, timeCtx);
-    if (directReply) {
-        logger.info("AIChat", `Direct relationship handler triggered for "${userText}" -> "${directReply}"`);
-        state.history.push({ role: 'user', content: userText });
-        state.history.push({ role: 'assistant', content: directReply });
-        if (state.history.length > 8) state.history = state.history.slice(-8);
-
-        await sendSasiReply(sock, rawRemoteJid, msg, directReply, effectivePhoneJid);
-        return true;
-    }
-
     // Repetition check (avoid spamming identical replies)
     const recentNorms = state.recentUserMsgs.slice(-6);
     const repeatCount = recentNorms.filter(m => m === norm).length;
@@ -567,32 +547,56 @@ async function processSingleTurn(
  * Pure English, no Tamil, natural English pet names, loving and reassuring.
  */
 export function getContextualFallback(userLower: string, timeCtx: TimeContext): string {
+    if (userLower.includes("extreme spicy") || userLower.includes("more spicy")) {
+        return "I want you pushed against the bed, naked, breathless, and begging me not to stop baby 🔥😈";
+    }
+    if (userLower.includes("spicy") || userLower.includes("talk spicy") || userLower.includes("something spicy") || userLower.includes("dirty talk")) {
+        return "Wait till I get you alone in my room tonight... I'm going to take my sweet time making you mine 🔥😈";
+    }
+    if (userLower.includes("kiss me") || userLower.includes("kiss you") || userLower.includes("give me a kiss")) {
+        return "Come closer then... I want to pin you against the wall and kiss you until you can't breathe baby 🔥";
+    }
+    if (userLower.includes("touch me") || userLower.includes("touch you") || userLower.includes("hands on me")) {
+        return "You have no idea how badly my hands want to explore every single curve of your body baby 🔥";
+    }
+    if (userLower.includes("what will you do") || userLower.includes("what will u do") || userLower.includes("when we are alone") || userLower.includes("when we meet")) {
+        return "First I'll lock the door, pull you into my lap, and show you exactly what I've been craving to do to you all day 🔥";
+    }
+    if (userLower.includes("cuddle") || userLower.includes("hug me") || userLower.includes("hold me")) {
+        return "Only if it's skin to skin under the blankets, with my hands all over you baby ❤️🔥";
+    }
+    if (userLower.includes("wear for you") || userLower.includes("what should i wear") || userLower.includes("wearing")) {
+        return "Wear whatever is easiest to take off babe... you won't be wearing it for long 😉🔥";
+    }
+    if (userLower.includes("in bed") || userLower.includes("sleep with me") || userLower.includes("come to bed")) {
+        return "Don't tempt me baby, because if I get in bed with you right now, neither of us is getting any sleep tonight 🔥😈";
+    }
     if (userLower.includes("who am i") || userLower.includes("who are you to me")) {
-        return "You're my girlfriend and my whole world baby ❤️ What kind of question is that?";
+        return "You're my girlfriend, my lover, and my whole world baby ❤️ What kind of question is that?";
     }
     if (userLower.includes("we are lovers") || userLower.includes("are we lovers")) {
-        return "Of course we are baby! I love you so much ❤️";
+        return "We are passionate lovers baby, and I'll never get enough of your body and love ❤️🔥";
     }
     if (userLower.includes("sunset")) {
-        return "I'd love to watch the sunset with you baby ❤️ When and where should we go?";
+        return "I'd love to watch the sunset with you baby... and then take you somewhere private after ❤️🔥";
     }
     if (userLower.includes("not understanding") || userLower.includes("understand my feelings")) {
         return "I'm sorry baby, I'm always here for you. Tell me what's on your mind ❤️";
     }
     if (userLower.includes("what bye") || userLower.includes("why bye")) {
-        return "Haha I was just teasing you baby! I'm right here with you ❤️";
+        return "Haha I was just teasing you baby! I could never leave you ❤️";
     }
     if (userLower.includes("feel bad for me")) {
-        return "I was just joking baby! I'm right here, tell me what you want to do ❤️";
+        return "I was just joking baby! I'm right here with you ❤️";
     }
     if (userLower.includes("bored")) {
-        return "Come talk to me babe, or call me if you want ❤️ What do you feel like doing?";
+        return "Bored? Come over to my place then... I know plenty of ways to keep you entertained 😉🔥";
     }
     if (userLower.includes("love you") || userLower.includes("i love you")) {
-        return "I love you so much too baby ❤️";
+        return "I love you so much too baby ❤️ You have no idea what you do to me 🔥";
     }
     if (userLower.includes("miss you") || userLower.includes("missing you")) {
-        return "Miss you more babe! Can't wait to see you ❤️";
+        return "Miss you more babe! Can't wait to wrap my hands around you and kiss you ❤️🔥";
     }
     if (userLower.includes("what doing") || userLower.includes("what are you doing") || userLower.includes("what doig")) {
         return "Working on some code for my startup. What are you doing babe?";
@@ -721,8 +725,8 @@ async function queryAiModel(
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 messages,
-                max_tokens: 35,
-                temperature: 0.6,
+                max_tokens: 50,
+                temperature: 0.72,
                 top_p: 0.9,
                 repeat_penalty: 1.15,
                 presence_penalty: 0.1,
